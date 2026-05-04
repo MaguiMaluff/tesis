@@ -5,7 +5,12 @@ from dotenv import load_dotenv
 from .config import load_config
 from .signature import verify_x_hub_signature_256
 from .normalize import normalize_instagram_event
-from .supabase_db import make_supabase, upsert_conversation, insert_message_event
+from .supabase_db import (
+    make_supabase,
+    get_or_create_conversation,
+    mark_conversation_pending,
+    insert_message_event,
+)
 
 load_dotenv()
 
@@ -55,8 +60,8 @@ def webhook_receive():
             if cm is None:
                 continue
 
-            # Upsert conversation state + pending_count
-            conv = upsert_conversation(SB, cm.ig_user_id, cm.peer_id, cm.sent_at)
+            # Ensure conversation exists (but do NOT increment pending yet)
+            conv = get_or_create_conversation(SB, cm.ig_user_id, cm.peer_id, cm.sent_at)
 
             # Insert message event (dedupe by mid unique)
             inserted = insert_message_event(
@@ -70,6 +75,8 @@ def webhook_receive():
             )
 
             if inserted:
+                # Only now increment pending_count/pending_since (non-duplicate message)
+                mark_conversation_pending(SB, conv["id"], cm.sent_at)
                 print(f"[message] mid={cm.mid} peer_id={cm.peer_id} direction={cm.direction}")
             else:
                 print(f"[duplicate] mid={cm.mid}")
