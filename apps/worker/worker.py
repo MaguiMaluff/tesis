@@ -22,10 +22,6 @@ SB = create_client(CFG.supabase_url, CFG.supabase_service_role_key)
 # Instagram Graph API client (used to resolve conversation_ext_id, etc.)
 GRAPH = InstagramGraph(CFG.api_version, CFG.access_token)
 
-# Debug: helps detect empty/truncated token problems (OAuth error 190)
-print("ACCESS_TOKEN prefix:", CFG.access_token[:10], "len:", len(CFG.access_token))
-
-
 def threshold_loop():
     """
     Volume-based trigger loop:
@@ -81,7 +77,10 @@ if __name__ == "__main__":
     t2.start()
 
     print("Worker running (threshold + hourly). Ctrl+C to stop.")
+    try:
+        while True:
+            time.sleep(5)
+    except KeyboardInterrupt:
+        print("\nWorker stopped.")
 
-    # Keep main thread alive
-    while True:
-        time.sleep(5)
+    
