@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+import argparse
 import json
-import os
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -13,13 +13,6 @@ from .ig_api import InstagramGraph
 
 
 def parse_ig_created_time(s: str | None) -> datetime | None:
-    """
-    IG often returns created_time like:
-      - '2026-04-23T22:14:01+0000'
-      - '2026-04-23T22:14:01+00:00'
-      - sometimes ISO with Z
-    We'll normalize a bit.
-    """
     if not s:
         return None
 
@@ -42,39 +35,74 @@ def parse_ig_created_time(s: str | None) -> datetime | None:
 
 
 def parse_iso_utc(s: str) -> datetime:
-    # Our DB timestamps are ISO with timezone
     dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(timezone.utc)
 
 
-def pick_role(ig_user_id: str, msg: dict) -> str:
+def infer_direction(ig_user_id: str, msg: dict) -> str:
+    """
+    Determine message direction relative to the monitored IG account.
+    We avoid "user/assistant" here and keep explicit inbound/outbound,
+    which is clearer for later risk analysis.
+    """
     frm = (msg.get("from") or {}).get("id")
     if str(frm) == str(ig_user_id):
-        return "assistant"  # your account
-    return "user"         # the peer
+        return "outbound"
+    return "inbound"
 
 
-def main():
+def extract_text(msg: dict) -> str:
+    """
+    IG API may use 'message' field for text. Keep best-effort fallback.
+    """
+    return (msg.get("message") or msg.get("text") or "").strip()
+
+
+def main() -> None:
+    """
+    Fetches the latest preprocess_run (ready_for_ai), pulls IG messages for its window,
+    and writes a JSON transcript file under ./transcripts.
+
+    Enhancements vs previous version:
+    - outputs direction=inbound/outbound (instead of role=user/assistant)
+    - includes rolling_summary_prev from conversations (if present)
+    - supports optional context messages before the window (for extra continuity)
+    - keeps message objects compact for prompt usage
+    """
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--limit", type=int, default=80, help="messages per page (IG API limit)")
+    parser.add_argument("--max-pages", type=int, default=20, help="max pages to fetch from IG API")
+    parser.add_argument(
+        "--context-before",
+        type=int,
+        default=0,
+        help="how many messages immediately before window_start to include as context (flagged context=true)",
+    )
+    parser.add_argument(
+        "--run-id",
+        type=str,
+        default="",
+        help="optional specific preprocess_run id to build transcript for (otherwise picks latest ready_for_ai)",
+    )
+    args = parser.parse_args()
+
     load_dotenv()
     cfg = load_worker_config()
 
     sb = create_client(cfg.supabase_url, cfg.supabase_service_role_key)
     graph = InstagramGraph(cfg.api_version, cfg.access_token)
 
-    # 1) get latest ready_for_ai preprocess_run
-    res = (
-        sb.table("preprocess_runs")
-        .select("*")
-        .eq("status", "ready_for_ai")
-        .order("created_at", desc=True)
-        .limit(1)
-        .execute()
-    )
+    # 1) get preprocess_run
+    q = sb.table("preprocess_runs").select("*").eq("status", "ready_for_ai").order("created_at", desc=True).limit(1)
+    if args.run_id:
+        q = sb.table("preprocess_runs").select("*").eq("id", args.run_id).limit(1)
+
+    res = q.execute()
     rows = res.data or []
     if not rows:
-        raise SystemExit("No preprocess_runs with status=ready_for_ai found.")
+        raise SystemExit("No preprocess_runs found for the given query.")
 
     run = rows[0]
     run_id = run["id"]
@@ -91,32 +119,58 @@ def main():
     ws = parse_iso_utc(window_start)
     we = parse_iso_utc(window_end)
 
-    # 2) fetch messages from conversation
-    msgs = graph.list_messages(conversation_ext_id, limit=50, max_pages=20)
+    # 2) fetch conversation (for rolling_summary_prev)
+    conv_res = (
+        sb.table("conversations")
+        .select("id,rolling_summary,ig_user_id,peer_id")
+        .eq("id", run["conversation_id"])
+        .limit(1)
+        .execute()
+    )
+    conv_rows = conv_res.data or []
+    rolling_summary_prev = None
+    if conv_rows:
+        rolling_summary_prev = conv_rows[0].get("rolling_summary")
 
-    # 3) filter by time window
-    picked = []
+    # 3) fetch messages from conversation (latest-first from API)
+    msgs = graph.list_messages(conversation_ext_id, limit=args.limit, max_pages=args.max_pages)
+
+    # 4) normalize + filter by time window
+    normalized = []
     for m in msgs:
         ct = parse_ig_created_time(m.get("created_time"))
         if not ct:
             continue
-        if ws <= ct <= we:
-            picked.append(m)
+        normalized.append((ct, m))
 
     # sort ascending by created_time
-    picked.sort(key=lambda m: parse_ig_created_time(m.get("created_time")) or datetime(1970, 1, 1, tzinfo=timezone.utc))
+    normalized.sort(key=lambda t: t[0])
 
-    # 4) build transcript (no DB writes)
-    transcript = []
-    for m in picked:
-        role = pick_role(ig_user_id, m)
-        text = m.get("message") or ""
-        transcript.append({
-            "role": role,
-            "created_time": m.get("created_time"),
-            "text": text,
-            "id": m.get("id"),
-        })
+    # pick those inside the window
+    window_msgs = []
+    for ct, m in normalized:
+        if ws <= ct <= we:
+            window_msgs.append((ct, m))
+
+    # context messages immediately before window_start
+    context_msgs = []
+    if args.context_before > 0:
+        before = [(ct, m) for ct, m in normalized if ct < ws]
+        context_msgs = before[-args.context_before :]
+
+    # 5) build compact message list
+    def to_item(ct: datetime, m: dict, context: bool) -> dict:
+        return {
+            "ts": ct.isoformat().replace("+00:00", "Z"),
+            "direction": infer_direction(ig_user_id, m),
+            "text": extract_text(m),
+            "ig_id": m.get("id"),
+            "context": context,
+        }
+
+    out_messages = [to_item(ct, m, True) for ct, m in context_msgs] + [
+        to_item(ct, m, False) for ct, m in window_msgs
+    ]
 
     out = {
         "run_id": run_id,
@@ -124,8 +178,13 @@ def main():
         "window_start": window_start,
         "window_end": window_end,
         "conversation_ext_id": conversation_ext_id,
-        "message_count_filtered": len(transcript),
-        "transcript": transcript,
+        "counts": {
+            "context_before": len(context_msgs),
+            "window": len(window_msgs),
+            "total_sent": len(out_messages),
+        },
+        "rolling_summary_prev": rolling_summary_prev,
+        "window_messages": out_messages,  # this is what will be paste into the LLM prompt
     }
 
     Path("transcripts").mkdir(parents=True, exist_ok=True)
@@ -133,7 +192,7 @@ def main():
     path.write_text(json.dumps(out, indent=2, ensure_ascii=False), encoding="utf-8")
 
     print("Saved:", str(path))
-    print("Filtered messages:", len(transcript))
+    print("Window messages:", len(window_msgs), "| Context before:", len(context_msgs))
 
 
 if __name__ == "__main__":
