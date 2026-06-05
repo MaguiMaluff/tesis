@@ -20,7 +20,7 @@ CFG = load_worker_config()
 SB = create_client(CFG.supabase_url, CFG.supabase_service_role_key)
 
 # Instagram Graph API client (used to resolve conversation_ext_id, etc.)
-GRAPH = InstagramGraph(CFG.api_version, CFG.access_token)
+GRAPH = InstagramGraph(CFG.api_version, CFG.access_token_fallback)
 
 def threshold_loop():
     """
