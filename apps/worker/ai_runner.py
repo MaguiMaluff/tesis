@@ -71,7 +71,11 @@ def build_window_messages(graph: InstagramGraph, fetch_plan: dict) -> list[dict]
         window_messages.append(
             {
                 "ts": ct.isoformat().replace("+00:00", "Z"),
-                "direction": ("outbound" if str((m.get("from") or {}).get("id")) == str(ig_user_id) else "inbound"),
+                "direction": (
+                    "outbound"
+                    if str((m.get("from") or {}).get("id")) == str(ig_user_id)
+                    else "inbound"
+                ),
                 "text": (m.get("message") or "").strip(),
                 "ig_id": m.get("id"),
                 "context": False,
@@ -164,7 +168,8 @@ def run_once() -> None:
     ai_cfg = load_ai_config_from_env()
 
     sb = create_client(cfg.supabase_url, cfg.supabase_service_role_key)
-    graph = InstagramGraph(cfg.api_version, cfg.access_token)
+
+    graph = InstagramGraph(cfg.api_version, cfg.access_token_fallback)
 
     run = fetch_one_ready_run(sb)
     if not run:

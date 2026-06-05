@@ -45,7 +45,6 @@ def hourly_loop():
     - Wakes up frequently (hourly_poll_seconds, default 60s)
     - But only runs the sweep when 1 hour has elapsed since last sweep
     """
-    # Recommended: start counting from "now" so it doesn't run immediately on boot.
     last_run = time.time()
 
     while True:

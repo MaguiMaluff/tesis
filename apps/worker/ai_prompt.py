@@ -13,6 +13,8 @@ Políticas de salida:
 - Nunca incluyas nombres completos, teléfonos, direcciones, usuarios, links, ni datos identificatorios.
 - No incluyas edades exactas; usá categorías (p. ej. "menor de edad", "adulto", "diferencia de edad").
 - Escribí short_reason_safe y analyst_notes en español.
+- signals y listas deben ser cortas (ver máximos).
+- No incluir risk_history (queda fuera del formato).
 """
 
 
@@ -59,9 +61,23 @@ Devolvé SOLO JSON con estas claves de primer nivel:
 - explanation
 - rolling_summary
 
-assessment debe incluir: risk_stage (0-4), risk_level (low|medium|high|critical), confidence (0..1), signals (list[str]), recommended_action (none|monitor|notify_parent|urgent_notify)
-evidence debe incluir: evidence_safe (list[str]), quoted_messages (list[str])
-explanation debe incluir: short_reason_safe (str), analyst_notes (str)
-rolling_summary debe incluir: version (int), current_stage_max (int), trend (stable|up|down), signals_observed (list[str]), key_points_safe (list[str]), risk_history (list[object])
-risk_history item: window_end (str ISO), risk_stage (int), risk_level (str), confidence (float), signals (list[str])
+assessment debe incluir:
+- risk_stage (0-4)
+- risk_level (low|medium|high|critical)
+- confidence (0..1)
+- signals (list[str], max 8)
+- recommended_action (none|monitor|notify_parent|urgent_notify)
+
+evidence debe incluir:
+- quoted_messages (list[str])  # si risk_stage <= 1 debe ser []
+
+explanation debe incluir:
+- short_reason_safe (str, max 280 chars)
+
+rolling_summary debe incluir:
+- version (int)
+- current_stage_max (int)
+- trend (stable|up|down)
+- signals_observed (list[str], max 10)
+- key_points_safe (list[str], max 5, bullets cortos)
 """

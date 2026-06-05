@@ -10,9 +10,9 @@ import requests
 
 @dataclass(frozen=True)
 class AIConfig:
-    base_url: str          
+    base_url: str
     api_key: str
-    model: str             
+    model: str
     temperature: float = 0.0
     max_tokens: int = 1500
     timeout_seconds: int = 90
@@ -61,7 +61,12 @@ def chat_completions(cfg: AIConfig, messages: list[dict[str, str]]) -> dict[str,
         "tool_choice": "none",
     }
 
-    r = requests.post(url, headers=headers, data=json.dumps(payload), timeout=cfg.timeout_seconds)
+    r = requests.post(
+        url,
+        headers=headers,
+        data=json.dumps(payload),
+        timeout=cfg.timeout_seconds,
+    )
     if r.status_code >= 400:
         raise RuntimeError(f"AI HTTP {r.status_code}: {r.text[:500]}")
 
@@ -116,7 +121,6 @@ def extract_json_content(openai_resp: dict[str, Any]) -> dict[str, Any]:
     OpenWebUI/Ollama-like backends may return output in:
       - choices[0].message.content
       - OR choices[0].message.reasoning (with content empty)
-    We handle both. Also uses balanced-brace extraction for robustness.
     """
     try:
         choice0 = (openai_resp.get("choices") or [{}])[0]
