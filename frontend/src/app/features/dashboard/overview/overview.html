@@ -1,0 +1,18 @@
+<div class="dashboard">
+  <h2>Dashboard</h2>
+  <div *ngIf="loading" class="loading">Loading...</div>
+  <div *ngIf="!loading" class="stats">
+    <div class="stat-card">
+      <h3>Total Cases</h3>
+      <p>{{ stats.total_cases }}</p>
+    </div>
+    <div class="stat-card critical">
+      <h3>Critical</h3>
+      <p>{{ stats.critical }}</p>
+    </div>
+    <div class="stat-card high">
+      <h3>High Risk</h3>
+      <p>{{ stats.high }}</p>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,12 @@
+<div class="conversation-detail">
+  <h2>Conversation Detail</h2>
+  <div *ngIf="loading" class="loading">Loading...</div>
+  <div *ngIf="!loading && conversation">
+    <p><strong>ID:</strong> {{ conversation.id }}</p>
+    <p><strong>Peer ID:</strong> {{ conversation.peer_id }}</p>
+    <p><strong>Status:</strong> {{ conversation.status }}</p>
+    <p><strong>Last Message:</strong> {{ conversation.last_message_at | date }}</p>
+    <p><strong>Pending Count:</strong> {{ conversation.pending_count }}</p>
+    <button (click)="goBack()">Back</button>
+  </div>
+</div>

@@ -1,0 +1,25 @@
+.conversation-detail {
+  padding: 2rem;
+}
+
+.loading {
+  text-align: center;
+  color: #666;
+}
+
+p {
+  margin: 0.5rem 0;
+}
+
+button {
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+  background-color: #4caf50;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #45a049;
+}

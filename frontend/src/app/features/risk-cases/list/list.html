@@ -1,0 +1,12 @@
+<div class="risk-cases-list">
+  <h2>Risk Cases</h2>
+  <div *ngIf="loading" class="loading">Loading...</div>
+  <div *ngIf="!loading && riskCases.length === 0" class="empty">No risk cases</div>
+  <ul *ngIf="!loading && riskCases.length > 0">
+    <li *ngFor="let rc of riskCases" [class.stage-4]="rc.stage === 4" [class.stage-3]="rc.stage === 3">
+      <a [routerLink]="['/risk-cases', rc.id]">
+        Stage {{ rc.stage }} - {{ rc.reason_safe }}
+      </a>
+    </li>
+  </ul>
+</div>

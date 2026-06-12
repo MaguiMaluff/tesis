@@ -1,0 +1,37 @@
+.risk-cases-list {
+  padding: 2rem;
+}
+
+.loading, .empty {
+  text-align: center;
+  color: #666;
+  padding: 2rem;
+}
+
+ul {
+  list-style: none;
+  padding: 0;
+}
+
+li {
+  border: 1px solid #ddd;
+  padding: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+li.stage-4 {
+  border-left: 4px solid #f44336;
+}
+
+li.stage-3 {
+  border-left: 4px solid #ff9800;
+}
+
+li a {
+  text-decoration: none;
+  color: #333;
+}
+
+li a:hover {
+  color: #4caf50;
+}

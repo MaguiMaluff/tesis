@@ -1,0 +1,12 @@
+<div class="conversations-list">
+  <h2>Conversations</h2>
+  <div *ngIf="loading" class="loading">Loading...</div>
+  <div *ngIf="!loading && conversations.length === 0" class="empty">No conversations</div>
+  <ul *ngIf="!loading && conversations.length > 0">
+    <li *ngFor="let conv of conversations">
+      <a [routerLink]="['/conversations', conv.id]">
+        {{ conv.peer_id }} - {{ conv.last_message_at | date }}
+      </a>
+    </li>
+  </ul>
+</div>

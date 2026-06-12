@@ -1,0 +1,13 @@
+<div class="risk-case-detail">
+  <h2>Risk Case Detail</h2>
+  <div *ngIf="loading" class="loading">Loading...</div>
+  <div *ngIf="!loading && riskCase" [class.stage-4]="riskCase.stage === 4" [class.stage-3]="riskCase.stage === 3">
+    <p><strong>ID:</strong> {{ riskCase.id }}</p>
+    <p><strong>Stage:</strong> {{ riskCase.stage }}</p>
+    <p><strong>Status:</strong> {{ riskCase.status }}</p>
+    <p><strong>Confidence:</strong> {{ riskCase.confidence | percent }}</p>
+    <p><strong>Reason:</strong> {{ riskCase.reason_safe }}</p>
+    <p><strong>Opened:</strong> {{ riskCase.opened_at | date }}</p>
+    <button (click)="goBack()">Back</button>
+  </div>
+</div>
