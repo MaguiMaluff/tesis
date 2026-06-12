@@ -1,11 +1,6 @@
-import { NgModule } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
-import { ListComponent } from './list/list';
-import { DetailComponent } from './detail/detail';
+import { Service } from '@angular/core';
 
-@NgModule({
-  declarations: [ListComponent, DetailComponent],
-  imports: [CommonModule, RouterModule],
-})
-export class RiskCasesModule {}
+@Service()
+export class RiskCaseService {
+  
+}

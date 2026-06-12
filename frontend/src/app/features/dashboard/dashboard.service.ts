@@ -1,10 +1,6 @@
-import { NgModule } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
-import { OverviewComponent } from './overview/overview';
+import { Service } from '@angular/core';
 
-@NgModule({
-  declarations: [OverviewComponent],
-  imports: [CommonModule, RouterModule],
-})
-export class DashboardModule {}
+@Service()
+export class DashboardService {
+  
+}

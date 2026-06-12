@@ -1,11 +1,14 @@
 import { Component, OnInit } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { CommonModule } from '@angular/common';
+import { RouterModule, ActivatedRoute } from '@angular/router';
 import { ApiService } from '../../../core/services/api';
 
 @Component({
   selector: 'app-risk-cases-detail',
   templateUrl: './detail.html',
   styleUrls: ['./detail.css'],
+  standalone: true,
+  imports: [CommonModule, RouterModule],
 })
 export class DetailComponent implements OnInit {
   riskCase: any;
@@ -30,5 +33,9 @@ export class DetailComponent implements OnInit {
         },
       });
     });
+  }
+
+  goBack(): void {
+    window.history.back();
   }
 }

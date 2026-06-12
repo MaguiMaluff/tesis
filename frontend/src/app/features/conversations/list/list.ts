@@ -1,10 +1,14 @@
 import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
 import { ApiService } from '../../../core/services/api';
 
 @Component({
   selector: 'app-conversations-list',
   templateUrl: './list.html',
   styleUrls: ['./list.css'],
+  standalone: true,
+  imports: [CommonModule, RouterModule],
 })
 export class ListComponent implements OnInit {
   conversations: any[] = [];

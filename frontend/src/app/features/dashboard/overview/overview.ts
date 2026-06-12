@@ -1,10 +1,13 @@
 import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { ApiService } from '../../../core/services/api';
 
 @Component({
   selector: 'app-dashboard-overview',
   templateUrl: './overview.html',
   styleUrls: ['./overview.css'],
+  standalone: true,
+  imports: [CommonModule],
 })
 export class OverviewComponent implements OnInit {
   stats: any = {};
