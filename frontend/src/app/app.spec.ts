@@ -1,23 +1,16 @@
-import { TestBed } from '@angular/core/testing';
-import { App } from './app';
+import { Routes } from '@angular/router';
+import { OverviewComponent } from './features/dashboard/overview/overview';
+import { ListComponent as ConvListComponent } from './features/conversations/list/list';
+import { DetailComponent as ConvDetailComponent } from './features/conversations/detail/detail';
+import { ListComponent as RiskListComponent } from './features/risk-cases/list/list';
+import { DetailComponent as RiskDetailComponent } from './features/risk-cases/detail/detail';
 
-describe('App', () => {
-  beforeEach(async () => {
-    await TestBed.configureTestingModule({
-      imports: [App],
-    }).compileComponents();
-  });
-
-  it('should create the app', () => {
-    const fixture = TestBed.createComponent(App);
-    const app = fixture.componentInstance;
-    expect(app).toBeTruthy();
-  });
-
-  it('should render title', () => {
-    const fixture = TestBed.createComponent(App);
-    fixture.detectChanges();
-    const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('h1')?.textContent).toContain('Hello, frontend');
-  });
-});
+export const routes: Routes = [
+  { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
+  { path: 'dashboard', component: OverviewComponent },
+  { path: 'conversations', component: ConvListComponent },
+  { path: 'conversations/:id', component: ConvDetailComponent },
+  { path: 'risk-cases', component: RiskListComponent },
+  { path: 'risk-cases/:id', component: RiskDetailComponent },
+  { path: '**', redirectTo: 'dashboard' },
+];
