@@ -1,6 +1,7 @@
 import os
 from flask import Flask, request
 from dotenv import load_dotenv
+from flask_cors import CORS
 
 from .config import load_config
 from .signature import verify_x_hub_signature_256
@@ -16,10 +17,14 @@ from .supabase_db import (
 load_dotenv()
 
 app = Flask(__name__)
+CORS(app) # Permite peticiones desde el frontend
 
 CFG = load_config()
 SB = make_supabase(CFG.supabase_url, CFG.supabase_service_role_key)
 
+# Importar y registrar rutas
+from .routes import register_routes
+register_routes(app)
 
 @app.get("/webhook")
 def webhook_verify():
