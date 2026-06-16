@@ -5,47 +5,87 @@ import time
 from typing import Any
 
 from dotenv import load_dotenv
-from supabase import create_client
+
+from apps.api.app import app as api_app
+from apps.api.database import db
+from apps.api.models import CaseSnapshot, Conversation, IgAccount, PreprocessRun, RiskCase
+from apps.api.services import parse_dt, to_iso, utcnow
 
 from .ai_client import chat_completions, extract_json_content, load_ai_config_from_env
 from .ai_prompt import SYSTEM_PROMPT, build_user_prompt
 from .build_transcript import parse_ig_created_time, parse_iso_utc
 from .config import load_worker_config
 from .ig_api import InstagramGraph
+from .jobs import is_synthetic_conversation_ext_id
+from .resolve_conversation import resolve_conversation_ext_id
 
 
-def fetch_one_ready_run(sb) -> dict | None:
-    res = (
-        sb.table("preprocess_runs")
-        .select("*")
-        .eq("status", "ready_for_ai")
-        .order("created_at", desc=False)
-        .limit(1)
-        .execute()
+def fetch_one_ready_run() -> dict | None:
+    run = (
+        PreprocessRun.query.filter_by(status="ready_for_ai")
+        .order_by(PreprocessRun.created_at.asc())
+        .first()
     )
-    rows = res.data or []
-    return rows[0] if rows else None
+    if not run:
+        return None
+    return {
+        "id": run.id,
+        "conversation_id": run.conversation_id,
+        "window_start": to_iso(run.window_start),
+        "window_end": to_iso(run.window_end),
+        "fetch_plan": run.fetch_plan or {},
+    }
 
 
-def mark_run_status(sb, run_id: str, status: str, error: str | None = None) -> None:
-    upd: dict[str, Any] = {"status": status}
-    if error:
-        upd["error"] = error[:1000]
-    sb.table("preprocess_runs").update(upd).eq("id", run_id).execute()
+def mark_run_status(run_id: str, status: str, error: str | None = None) -> None:
+    run = db.session.get(PreprocessRun, run_id)
+    if not run:
+        raise RuntimeError(f"Preprocess run not found: {run_id}")
+    run.status = status
+    run.error = (error or "")[:1000] if error else None
+    run.updated_at = utcnow()
+    db.session.commit()
 
 
-def get_conversation(sb, conversation_id: str) -> dict:
-    res = (
-        sb.table("conversations")
-        .select("*")
-        .eq("id", conversation_id)
-        .limit(1)
-        .execute()
-    )
-    rows = res.data or []
-    if not rows:
+def get_conversation(conversation_id: str) -> dict:
+    conversation = db.session.get(Conversation, conversation_id)
+    if not conversation:
         raise RuntimeError(f"Conversation not found: {conversation_id}")
-    return rows[0]
+    return {
+        "id": conversation.id,
+        "rolling_summary": conversation.rolling_summary,
+        "ig_user_id": conversation.ig_account.ig_user_id if conversation.ig_account else None,
+        "peer_id": conversation.peer_id,
+    }
+
+
+def get_graph_for_conversation(conversation_id: str, api_version: str) -> tuple[InstagramGraph, str]:
+    conversation = db.session.get(Conversation, conversation_id)
+    if not conversation or not conversation.ig_account_id:
+        raise RuntimeError(f"Conversation not found or missing ig_account: {conversation_id}")
+
+    ig_account = db.session.get(IgAccount, conversation.ig_account_id)
+    if not ig_account:
+        raise RuntimeError(f"ig_account not found: {conversation.ig_account_id}")
+
+    if not ig_account.access_token:
+        raise RuntimeError(f"ig_account {ig_account.id} has no access_token")
+
+    return InstagramGraph(api_version, ig_account.access_token), ig_account.ig_user_id
+
+
+def resolve_conversation_ext_id_if_needed(conversation: Conversation, graph: InstagramGraph) -> str:
+    conversation_ext_id = conversation.conversation_ext_id
+    if not conversation_ext_id or is_synthetic_conversation_ext_id(conversation_ext_id, conversation.ig_account_id):
+        resolved = resolve_conversation_ext_id(graph, conversation.ig_account_id.ig_user_id, conversation.peer_id)
+        if not resolved:
+            raise RuntimeError(
+                f"Conversation {conversation.id} has no valid conversation_ext_id; rerun preprocessing to resolve it"
+            )
+        conversation.conversation_ext_id = resolved
+        db.session.commit()
+        return resolved
+    return conversation_ext_id
 
 
 def build_window_messages(graph: InstagramGraph, fetch_plan: dict) -> list[dict]:
@@ -84,15 +124,18 @@ def build_window_messages(graph: InstagramGraph, fetch_plan: dict) -> list[dict]
     return window_messages
 
 
-def update_rolling_summary(sb, conversation_id: str, ai_json: dict[str, Any]) -> None:
+def update_rolling_summary(conversation_id: str, ai_json: dict[str, Any]) -> None:
     rolling = ai_json.get("rolling_summary")
     if not isinstance(rolling, dict):
         return
-    sb.table("conversations").update({"rolling_summary": rolling}).eq("id", conversation_id).execute()
+    conversation = db.session.get(Conversation, conversation_id)
+    if not conversation:
+        raise RuntimeError(f"Conversation not found: {conversation_id}")
+    conversation.rolling_summary = rolling
+    db.session.commit()
 
 
 def upsert_risk_case_and_snapshot(
-    sb,
     conversation_id: str,
     window_start: str,
     window_end: str,
@@ -103,56 +146,42 @@ def upsert_risk_case_and_snapshot(
     confidence = assessment.get("confidence")
     reason_safe = ((ai_json.get("explanation") or {}).get("short_reason_safe") or "")[:500]
 
-    # Only create/update risk_cases for meaningful risk
     if stage <= 1:
         return
 
     existing = (
-        sb.table("risk_cases")
-        .select("*")
-        .eq("conversation_id", conversation_id)
-        .eq("status", "open")
-        .order("opened_at", desc=True)
-        .limit(1)
-        .execute()
+        RiskCase.query.filter_by(conversation_id=conversation_id, status="open")
+        .order_by(RiskCase.opened_at.desc())
+        .first()
     )
-    rows = existing.data or []
-    if rows:
-        risk_case_id = rows[0]["id"]
-        sb.table("risk_cases").update(
-            {
-                "stage": stage,
-                "confidence": confidence,
-                "reason_safe": reason_safe,
-                "evidence_window_start": window_start,
-                "evidence_window_end": window_end,
-            }
-        ).eq("id", risk_case_id).execute()
+    if existing:
+        risk_case = existing
+        risk_case.stage = stage
+        risk_case.confidence = confidence
+        risk_case.reason_safe = reason_safe
+        risk_case.evidence_window_start = parse_dt(window_start)
+        risk_case.evidence_window_end = parse_dt(window_end)
     else:
-        ins = (
-            sb.table("risk_cases")
-            .insert(
-                {
-                    "conversation_id": conversation_id,
-                    "status": "open",
-                    "stage": stage,
-                    "confidence": confidence,
-                    "reason_safe": reason_safe,
-                    "evidence_window_start": window_start,
-                    "evidence_window_end": window_end,
-                }
-            )
-            .execute()
+        risk_case = RiskCase(
+            conversation_id=conversation_id,
+            status="open",
+            stage=stage,
+            confidence=confidence,
+            reason_safe=reason_safe,
+            evidence_window_start=parse_dt(window_start),
+            evidence_window_end=parse_dt(window_end),
         )
-        risk_case_id = ins.data[0]["id"]
+        db.session.add(risk_case)
+        db.session.flush()
 
-    sb.table("case_snapshots").insert(
-        {
-            "risk_case_id": risk_case_id,
-            "snapshot_json": ai_json,
-            "encrypted": False,
-        }
-    ).execute()
+    db.session.add(
+        CaseSnapshot(
+            risk_case_id=risk_case.id,
+            snapshot_json=ai_json,
+            encrypted=False,
+        )
+    )
+    db.session.commit()
 
 
 def _finish_reason(resp: dict[str, Any]) -> str:
@@ -167,79 +196,81 @@ def run_once() -> None:
     cfg = load_worker_config()
     ai_cfg = load_ai_config_from_env()
 
-    sb = create_client(cfg.supabase_url, cfg.supabase_service_role_key)
+    with api_app.app_context():
+        run = fetch_one_ready_run()
+        if not run:
+            print("[ai] no ready_for_ai runs")
+            return
 
-    graph = InstagramGraph(cfg.api_version, cfg.access_token_fallback)
+        run_id = run["id"]
+        conv_id = run["conversation_id"]
+        fetch_plan = run.get("fetch_plan") or {}
 
-    run = fetch_one_ready_run(sb)
-    if not run:
-        print("[ai] no ready_for_ai runs")
-        return
+        try:
+            mark_run_status(run_id, "processing")
 
-    run_id = run["id"]
-    conv_id = run["conversation_id"]
-    fetch_plan = run.get("fetch_plan") or {}
+            conv = get_conversation(conv_id)
+            rolling_prev = conv.get("rolling_summary")
 
-    try:
-        mark_run_status(sb, run_id, "processing")
+            graph, account_ig_user_id = get_graph_for_conversation(conv_id, cfg.api_version)
+            if account_ig_user_id and conv.get("ig_user_id") and str(account_ig_user_id) != str(conv.get("ig_user_id")):
+                print(f"[ai] warning ig_user_id mismatch conv={conv.get('ig_user_id')} account={account_ig_user_id}")
 
-        conv = get_conversation(sb, conv_id)
-        rolling_prev = conv.get("rolling_summary")
+            conversation = db.session.get(Conversation, conv_id)
+            if conversation:
+                resolve_conversation_ext_id_if_needed(conversation, graph)
 
-        window_messages = build_window_messages(graph, fetch_plan)
-        print(f"[ai] run_id={run_id} conv_id={conv_id} window_msgs={len(window_messages)}")
+            window_messages = build_window_messages(graph, fetch_plan)
+            print(f"[ai] run_id={run_id} conv_id={conv_id} window_msgs={len(window_messages)}")
 
-        user_prompt = build_user_prompt(
-            rolling_summary_prev=rolling_prev,
-            window_messages=window_messages,
-            window_start=fetch_plan.get("window_start") or str(run.get("window_start")),
-            window_end=fetch_plan.get("window_end") or str(run.get("window_end")),
-        )
-
-        # Try once, and retry once if JSON parse fails (common when response truncates)
-        last_err: Exception | None = None
-        for attempt in (1, 2):
-            resp = chat_completions(
-                ai_cfg,
-                messages=[
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": user_prompt},
-                ],
+            user_prompt = build_user_prompt(
+                rolling_summary_prev=rolling_prev,
+                window_messages=window_messages,
+                window_start=fetch_plan.get("window_start") or str(run.get("window_start")),
+                window_end=fetch_plan.get("window_end") or str(run.get("window_end")),
             )
-            fr = _finish_reason(resp)
-            try:
-                ai_json = extract_json_content(resp)
-                break
-            except Exception as e:
-                last_err = e
-                print(f"[ai] parse_failed attempt={attempt} finish_reason={fr!r} err={e}")
-                if attempt == 2:
-                    raise
-                # If truncated, retry with a slightly smaller prompt next attempt (drop rolling_summary_prev)
-                user_prompt = build_user_prompt(
-                    rolling_summary_prev=None,
-                    window_messages=window_messages,
-                    window_start=fetch_plan.get("window_start") or str(run.get("window_start")),
-                    window_end=fetch_plan.get("window_end") or str(run.get("window_end")),
+
+            last_err: Exception | None = None
+            for attempt in (1, 2):
+                resp = chat_completions(
+                    ai_cfg,
+                    messages=[
+                        {"role": "system", "content": SYSTEM_PROMPT},
+                        {"role": "user", "content": user_prompt},
+                    ],
                 )
-        else:
-            raise last_err or RuntimeError("AI parse failed")
+                fr = _finish_reason(resp)
+                try:
+                    ai_json = extract_json_content(resp)
+                    break
+                except Exception as e:
+                    last_err = e
+                    print(f"[ai] parse_failed attempt={attempt} finish_reason={fr!r} err={e}")
+                    if attempt == 2:
+                        raise
+                    user_prompt = build_user_prompt(
+                        rolling_summary_prev=None,
+                        window_messages=window_messages,
+                        window_start=fetch_plan.get("window_start") or str(run.get("window_start")),
+                        window_end=fetch_plan.get("window_end") or str(run.get("window_end")),
+                    )
+            else:
+                raise last_err or RuntimeError("AI parse failed")
 
-        update_rolling_summary(sb, conv_id, ai_json)
-        upsert_risk_case_and_snapshot(
-            sb,
-            conversation_id=conv_id,
-            window_start=str(run["window_start"]),
-            window_end=str(run["window_end"]),
-            ai_json=ai_json,
-        )
+            update_rolling_summary(conv_id, ai_json)
+            upsert_risk_case_and_snapshot(
+                conversation_id=conv_id,
+                window_start=str(run["window_start"]),
+                window_end=str(run["window_end"]),
+                ai_json=ai_json,
+            )
 
-        mark_run_status(sb, run_id, "ai_done")
-        print(f"[ai] done run_id={run_id} messages={len(window_messages)}")
+            mark_run_status(run_id, "ai_done")
+            print(f"[ai] done run_id={run_id} messages={len(window_messages)}")
 
-    except Exception as e:
-        mark_run_status(sb, run_id, "error", error=str(e))
-        print(f"[ai] error run_id={run_id}: {e}")
+        except Exception as e:
+            mark_run_status(run_id, "error", error=str(e))
+            print(f"[ai] error run_id={run_id}: {e}")
 
 
 def main() -> None:

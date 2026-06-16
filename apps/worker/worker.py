@@ -1,8 +1,6 @@
 import time
 from dotenv import load_dotenv
-from supabase import create_client
 
-from .ig_api import InstagramGraph
 from .config import load_worker_config
 from .jobs import (
     fetch_pending_conversations,
@@ -16,12 +14,6 @@ load_dotenv()
 # Load worker configuration (fails fast if required env vars are missing)
 CFG = load_worker_config()
 
-# Supabase client (service role; server-side only)
-SB = create_client(CFG.supabase_url, CFG.supabase_service_role_key)
-
-# Instagram Graph API client (used to resolve conversation_ext_id, etc.)
-GRAPH = InstagramGraph(CFG.api_version, CFG.access_token_fallback)
-
 def threshold_loop():
     """
     Volume-based trigger loop:
@@ -30,9 +22,9 @@ def threshold_loop():
     """
     while True:
         try:
-            convs = fetch_pending_conversations(SB, CFG.threshold_messages)
+            convs = fetch_pending_conversations(CFG.threshold_messages)
             for c in convs:
-                preprocess_conversation(SB, GRAPH, c, trigger="threshold_10")
+                preprocess_conversation(CFG.api_version, c, trigger="threshold_10")
         except Exception as e:
             print("[threshold_loop] error:", e)
 
@@ -54,9 +46,9 @@ def hourly_loop():
         if (now - last_run) >= 3600:
             last_run = now
             try:
-                convs = fetch_any_pending_conversations(SB)
+                convs = fetch_any_pending_conversations()
                 for c in convs:
-                    preprocess_conversation(SB, GRAPH, c, trigger="hourly")
+                    preprocess_conversation(CFG.api_version, c, trigger="hourly")
             except Exception as e:
                 print("[hourly_loop] error:", e)
 

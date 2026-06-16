@@ -1,0 +1,33 @@
+<section class="login-shell">
+  <div class="login-card">
+    <div class="login-card__copy">
+      <p class="eyebrow">Secure access</p>
+      <h1>Dashboard de monitoreo</h1>
+      <p>
+        Inicia sesión para revisar hijos monitoreados, conversaciones y risk cases desde la API de Flask.
+      </p>
+    </div>
+
+    <form class="login-form" [formGroup]="loginForm" (ngSubmit)="submit()" novalidate>
+      <label>
+        <span>Email</span>
+        <input type="email" formControlName="email" placeholder="tu@email.com" autocomplete="email" />
+        <small *ngIf="emailInvalid">Ingresa un email válido.</small>
+      </label>
+
+      <label>
+        <span>Contraseña</span>
+        <input type="password" formControlName="password" placeholder="••••••••" autocomplete="current-password" />
+        <small *ngIf="passwordInvalid">La contraseña debe tener al menos 6 caracteres.</small>
+      </label>
+
+      <div class="error" *ngIf="errorMessage">{{ errorMessage }}</div>
+
+      <button type="submit" [disabled]="loading">
+        {{ loading ? 'Ingresando...' : 'Entrar' }}
+      </button>
+
+      <a class="signup-link" routerLink="/signup">Crear cuenta</a>
+    </form>
+  </div>
+</section>

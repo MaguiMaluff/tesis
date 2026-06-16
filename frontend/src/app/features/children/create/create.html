@@ -1,0 +1,36 @@
+<section class="child-shell">
+  <div class="child-card">
+    <div class="child-card__copy">
+      <p class="eyebrow">Monitored profile</p>
+      <h1>Agregar hijo</h1>
+      <p>Un único envío crea el perfil del hijo y su cuenta de Instagram monitoreada.</p>
+    </div>
+
+    <form class="child-form" [formGroup]="childForm" (ngSubmit)="submit()" novalidate>
+      <label>
+        <span>Nombre del hijo</span>
+        <input type="text" formControlName="display_name" placeholder="Ej. Sofía" autocomplete="off" />
+        <small *ngIf="displayNameInvalid">El nombre es obligatorio.</small>
+      </label>
+
+      <label>
+        <span>Instagram User ID</span>
+        <input type="text" formControlName="ig_user_id" placeholder="ig-1001" autocomplete="off" />
+        <small *ngIf="igUserIdInvalid">El Instagram User ID es obligatorio.</small>
+      </label>
+
+      <label>
+        <span>Instagram Access Token</span>
+        <input type="text" formControlName="access_token" placeholder="Token de acceso" autocomplete="off" />
+        <small *ngIf="accessTokenInvalid">El access token es obligatorio.</small>
+      </label>
+
+      <div class="success" *ngIf="successMessage">{{ successMessage }}</div>
+      <div class="error" *ngIf="errorMessage">{{ errorMessage }}</div>
+
+      <button type="submit" [disabled]="loading">{{ loading ? 'Guardando...' : 'Crear hijo' }}</button>
+
+      <a class="back-link" routerLink="/dashboard">Volver al dashboard</a>
+    </form>
+  </div>
+</section>

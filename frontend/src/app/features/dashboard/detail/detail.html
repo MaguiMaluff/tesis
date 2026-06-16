@@ -1,0 +1,69 @@
+<section class="profile-detail" *ngIf="!loading && child; else loadingState">
+  <div class="hero">
+    <div>
+      <nav class="breadcrumbs">
+        <a routerLink="/dashboard">Dashboard</a>
+        <span>/</span>
+        <span>Hijos</span>
+        <span>/</span>
+        <span>{{ child.display_name }}</span>
+      </nav>
+      <p class="eyebrow">Monitored profile</p>
+      <h2>{{ child.display_name }}</h2>
+      <p class="muted">Perfil del hijo con su cuenta monitoreada asociada.</p>
+    </div>
+
+    <div class="detail-actions">
+      <a class="back-button" routerLink="/dashboard/new">Agregar hijo</a>
+      <button type="button" class="back-button" (click)="back()">Back</button>
+    </div>
+  </div>
+
+  <div class="metric-grid">
+    <article class="metric-card">
+      <span>Instagram User ID</span>
+      <strong>{{ igUserId }}</strong>
+    </article>
+    <article class="metric-card">
+      <span>Estado</span>
+      <strong>{{ statusLabel }}</strong>
+    </article>
+    <article class="metric-card accent">
+      <span>Fecha de creación</span>
+      <strong>{{ child.created_at | date: 'medium' }}</strong>
+    </article>
+  </div>
+
+  <div class="content-grid">
+    <section class="panel panel--full">
+      <div class="panel__header">
+        <h3>Acciones</h3>
+      </div>
+
+      <div class="stack-list">
+        <article class="stack-item stack-item--wide">
+          <div>
+            <strong>Conversaciones</strong>
+            <p>Ver las conversaciones de este perfil en la sección correspondiente.</p>
+          </div>
+          <a routerLink="/conversations">Abrir</a>
+        </article>
+
+        <article class="stack-item stack-item--wide">
+          <div>
+            <strong>Risk cases</strong>
+            <p>Ver los casos de riesgo asociados a esta cuenta.</p>
+          </div>
+          <a routerLink="/risk-cases">Abrir</a>
+        </article>
+      </div>
+    </section>
+  </div>
+</section>
+
+<ng-template #loadingState>
+  <section class="profile-detail profile-detail--loading">
+    <div *ngIf="loading" class="loading-card">Loading child profile from API...</div>
+    <div *ngIf="!loading && errorMessage" class="loading-card loading-card--error">{{ errorMessage }}</div>
+  </section>
+</ng-template>

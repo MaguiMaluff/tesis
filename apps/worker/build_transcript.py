@@ -6,10 +6,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from dotenv import load_dotenv
-from supabase import create_client
+
+from apps.api.app import app as api_app
+from apps.api.database import db
+from apps.api.models import Conversation, IgAccount, PreprocessRun
 
 from .config import load_worker_config
+from .jobs import is_synthetic_conversation_ext_id
 from .ig_api import InstagramGraph
+from .resolve_conversation import resolve_conversation_ext_id
 
 
 def parse_ig_created_time(s: str | None) -> datetime | None:
@@ -18,7 +23,6 @@ def parse_ig_created_time(s: str | None) -> datetime | None:
 
     s = s.strip()
 
-    # +0000 -> +00:00
     if len(s) >= 5 and (s.endswith("+0000") or s.endswith("-0000")):
         s = s[:-5] + s[-5:-2] + ":" + s[-2:]
 
@@ -42,11 +46,6 @@ def parse_iso_utc(s: str) -> datetime:
 
 
 def infer_direction(ig_user_id: str, msg: dict) -> str:
-    """
-    Determine message direction relative to the monitored IG account.
-    We avoid "user/assistant" here and keep explicit inbound/outbound,
-    which is clearer for later risk analysis.
-    """
     frm = (msg.get("from") or {}).get("id")
     if str(frm) == str(ig_user_id):
         return "outbound"
@@ -54,23 +53,57 @@ def infer_direction(ig_user_id: str, msg: dict) -> str:
 
 
 def extract_text(msg: dict) -> str:
-    """
-    IG API may use 'message' field for text. Keep best-effort fallback.
-    """
     return (msg.get("message") or msg.get("text") or "").strip()
 
 
-def main() -> None:
-    """
-    Fetches the latest preprocess_run (ready_for_ai), pulls IG messages for its window,
-    and writes a JSON transcript file under ./transcripts.
+def _fetch_run(run_id: str | None) -> dict:
+    with api_app.app_context():
+        query = PreprocessRun.query.filter_by(status="ready_for_ai").order_by(PreprocessRun.created_at.desc())
+        if run_id:
+            query = PreprocessRun.query.filter_by(id=run_id)
 
-    Enhancements vs previous version:
-    - outputs direction=inbound/outbound (instead of role=user/assistant)
-    - includes rolling_summary_prev from conversations (if present)
-    - supports optional context messages before the window (for extra continuity)
-    - keeps message objects compact for prompt usage
-    """
+        run = query.first()
+        if not run:
+            raise SystemExit("No preprocess_runs found for the given query.")
+
+        return {
+            "id": run.id,
+            "conversation_id": run.conversation_id,
+            "window_start": run.window_start.isoformat().replace("+00:00", "Z"),
+            "window_end": run.window_end.isoformat().replace("+00:00", "Z"),
+            "fetch_plan": run.fetch_plan or {},
+        }
+
+
+def _load_conversation(conversation_id: str) -> dict:
+    with api_app.app_context():
+        conversation = db.session.get(Conversation, conversation_id)
+        if not conversation:
+            raise SystemExit(f"Conversation not found: {conversation_id}")
+        ig_account = db.session.get(IgAccount, conversation.ig_account_id) if conversation.ig_account_id else None
+        if not ig_account:
+            raise SystemExit(f"ig_account not found for conversation: {conversation_id}")
+        if not ig_account.access_token:
+            raise SystemExit(f"ig_account {ig_account.id} has no access_token")
+        if is_synthetic_conversation_ext_id(conversation.conversation_ext_id, conversation.ig_account_id):
+            graph = InstagramGraph(load_worker_config().api_version, ig_account.access_token)
+            resolved = resolve_conversation_ext_id(graph, ig_account.ig_user_id, conversation.peer_id)
+            if not resolved:
+                raise SystemExit(
+                    f"Conversation {conversation_id} still has synthetic conversation_ext_id; rerun preprocessing first"
+                )
+            conversation.conversation_ext_id = resolved
+            db.session.commit()
+        return {
+            "id": conversation.id,
+            "rolling_summary": conversation.rolling_summary,
+            "ig_user_id": ig_account.ig_user_id,
+            "access_token": ig_account.access_token,
+            "peer_id": conversation.peer_id,
+        }
+
+
+def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--limit", type=int, default=80, help="messages per page (IG API limit)")
     parser.add_argument("--max-pages", type=int, default=20, help="max pages to fetch from IG API")
@@ -91,21 +124,7 @@ def main() -> None:
     load_dotenv()
     cfg = load_worker_config()
 
-    sb = create_client(cfg.supabase_url, cfg.supabase_service_role_key)
-    graph = InstagramGraph(cfg.api_version, cfg.access_token)
-
-    # 1) get preprocess_run
-    q = sb.table("preprocess_runs").select("*").eq("status", "ready_for_ai").order("created_at", desc=True).limit(1)
-    if args.run_id:
-        q = sb.table("preprocess_runs").select("*").eq("id", args.run_id).limit(1)
-
-    res = q.execute()
-    rows = res.data or []
-    if not rows:
-        raise SystemExit("No preprocess_runs found for the given query.")
-
-    run = rows[0]
-    run_id = run["id"]
+    run = _fetch_run(args.run_id or None)
     fetch_plan = run.get("fetch_plan") or {}
 
     ig_user_id = fetch_plan.get("ig_user_id")
@@ -114,28 +133,17 @@ def main() -> None:
     window_end = fetch_plan.get("window_end")
 
     if not (ig_user_id and conversation_ext_id and window_start and window_end):
-        raise SystemExit(f"Run {run_id} fetch_plan missing required fields.")
+        raise SystemExit(f"Run {run['id']} fetch_plan missing required fields.")
 
     ws = parse_iso_utc(window_start)
     we = parse_iso_utc(window_end)
 
-    # 2) fetch conversation (for rolling_summary_prev)
-    conv_res = (
-        sb.table("conversations")
-        .select("id,rolling_summary,ig_user_id,peer_id")
-        .eq("id", run["conversation_id"])
-        .limit(1)
-        .execute()
-    )
-    conv_rows = conv_res.data or []
-    rolling_summary_prev = None
-    if conv_rows:
-        rolling_summary_prev = conv_rows[0].get("rolling_summary")
+    conv = _load_conversation(run["conversation_id"])
+    rolling_summary_prev = conv.get("rolling_summary")
 
-    # 3) fetch messages from conversation (latest-first from API)
+    graph = InstagramGraph(cfg.api_version, conv["access_token"])
     msgs = graph.list_messages(conversation_ext_id, limit=args.limit, max_pages=args.max_pages)
 
-    # 4) normalize + filter by time window
     normalized = []
     for m in msgs:
         ct = parse_ig_created_time(m.get("created_time"))
@@ -143,22 +151,18 @@ def main() -> None:
             continue
         normalized.append((ct, m))
 
-    # sort ascending by created_time
     normalized.sort(key=lambda t: t[0])
 
-    # pick those inside the window
     window_msgs = []
     for ct, m in normalized:
         if ws <= ct <= we:
             window_msgs.append((ct, m))
 
-    # context messages immediately before window_start
     context_msgs = []
     if args.context_before > 0:
         before = [(ct, m) for ct, m in normalized if ct < ws]
-        context_msgs = before[-args.context_before :]
+        context_msgs = before[-args.context_before:]
 
-    # 5) build compact message list
     def to_item(ct: datetime, m: dict, context: bool) -> dict:
         return {
             "ts": ct.isoformat().replace("+00:00", "Z"),
@@ -168,12 +172,10 @@ def main() -> None:
             "context": context,
         }
 
-    out_messages = [to_item(ct, m, True) for ct, m in context_msgs] + [
-        to_item(ct, m, False) for ct, m in window_msgs
-    ]
+    out_messages = [to_item(ct, m, True) for ct, m in context_msgs] + [to_item(ct, m, False) for ct, m in window_msgs]
 
     out = {
-        "run_id": run_id,
+        "run_id": run["id"],
         "conversation_id": run["conversation_id"],
         "window_start": window_start,
         "window_end": window_end,
@@ -184,11 +186,11 @@ def main() -> None:
             "total_sent": len(out_messages),
         },
         "rolling_summary_prev": rolling_summary_prev,
-        "window_messages": out_messages,  # this is what will be paste into the LLM prompt
+        "window_messages": out_messages,
     }
 
     Path("transcripts").mkdir(parents=True, exist_ok=True)
-    path = Path("transcripts") / f"{run_id}.json"
+    path = Path("transcripts") / f"{run['id']}.json"
     path.write_text(json.dumps(out, indent=2, ensure_ascii=False), encoding="utf-8")
 
     print("Saved:", str(path))

@@ -1,0 +1,117 @@
+:host {
+  display: block;
+}
+
+.login-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.login-card {
+  width: min(100%, 980px);
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 24px;
+  padding: 28px;
+  border-radius: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(16, 18, 22, 0.82);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(18px);
+}
+
+.login-card__copy {
+  display: grid;
+  align-content: center;
+  gap: 14px;
+}
+
+.eyebrow {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 0.72rem;
+  color: #c9b39d;
+}
+
+h1,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: clamp(2rem, 4vw, 3.3rem);
+}
+
+.login-card__copy p:last-child {
+  color: rgba(243, 239, 231, 0.72);
+  line-height: 1.55;
+}
+
+.login-form {
+  display: grid;
+  gap: 16px;
+  padding: 22px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+label {
+  display: grid;
+  gap: 8px;
+}
+
+label span {
+  font-size: 0.9rem;
+  color: rgba(243, 239, 231, 0.78);
+}
+
+input {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(9, 10, 13, 0.72);
+  color: #f5f0e8;
+  outline: none;
+}
+
+input:focus {
+  border-color: rgba(201, 179, 157, 0.55);
+  box-shadow: 0 0 0 3px rgba(201, 179, 157, 0.14);
+}
+
+small,
+.error {
+  color: #f8aa97;
+}
+
+
+.signup-link {
+  justify-self: center;
+  color: rgba(243, 239, 231, 0.78);
+  text-decoration: none;
+}
+button {
+  padding: 14px 16px;
+  border: 0;
+  border-radius: 16px;
+  color: #141414;
+  background: linear-gradient(135deg, #f7e7d3, #c9b39d);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: progress;
+  opacity: 0.8;
+}
+
+@media (max-width: 860px) {
+  .login-card {
+    grid-template-columns: 1fr;
+  }
+}
