@@ -34,10 +34,8 @@ Plataforma para monitorear conversaciones de Instagram, registrar eventos mínim
 - `apps/api/API.md`
 - `apps/api/models/MODELS.md`
 - `apps/api/routes/ROUTES.md`
-- `apps/api/instance/INSTANCE.md`
 - `apps/worker/WORKER.md`
 - `frontend/FRONTEND.md`
-- `frontend/public/PUBLIC.md`
 - `frontend/src/SRC.md`
 - `frontend/src/environments/ENVIRONMENTS.md`
 - `frontend/src/app/APP.md`
@@ -54,7 +52,6 @@ Plataforma para monitorear conversaciones de Instagram, registrar eventos mínim
 - `frontend/src/app/shared/SHARED.md`
 - `frontend/src/app/shared/components/COMPONENTS.md`
 - `scripts/SCRIPTS.md`
-- `transcripts/TRANSCRIPTS.md`
 
 ## Desarrollo local
 
