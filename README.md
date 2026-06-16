@@ -1,39 +1,92 @@
-# tesis — Instagram Webhook + Preprocess (MVP)
+# tesis
 
-## What this is
-- `apps/api`: Flask webhook receiver for Instagram messaging events.
-- `apps/worker`: background worker that creates `preprocess_runs` hourly or when a conversation has >= 10 pending messages.
-- Uses Supabase Postgres. Does NOT store message text (only hashes/features).
+Plataforma para monitorear conversaciones de Instagram, registrar eventos mínimos del webhook y preparar ventanas de análisis para un proceso de preprocesamiento y evaluación de riesgo.
 
-## Setup
-1. Create `.env` from `.env.example`
-2. Run SQL migration in Supabase: `migrations/001_init.sql`
-3. Install deps:
-   ```bash
-   pip install -r requirements.txt
-   ```
-4. Run API locally:
-   ```bash
-   python -m apps.api.app
-   ```
-5. Run worker locally:
-   ```bash
-   python -m apps.worker.worker
-   ```
+## Arquitectura
 
-## Webhook endpoints
-- GET `/webhook` — Meta subscription verification
-- POST `/webhook` — receives events
+| Capa | Carpeta | Responsabilidad |
+| --- | --- | --- |
+| Presentación | `frontend/` | Aplicación Angular para login, tablero, conversaciones y casos de riesgo. |
+| API | `apps/api/` | Flask expone autenticación, webhook de Instagram y endpoints de consulta. |
+| Procesamiento | `apps/worker/` | Consume pendientes, reconstruye ventanas de mensajes y genera `preprocess_runs` y casos de riesgo. |
+| Persistencia | Base relacional configurada por entorno | Guarda usuarios, hijos, cuentas, conversaciones, eventos y casos. |
+| Soporte | `scripts/` y `transcripts/` | Utilidades locales y exportes JSON del worker. |
 
-### Signature validation
-POST requests must include `X-Hub-Signature-256`. The API validates it using `META_APP_SECRET`.
-If invalid, returns 403 and does not store anything.
+## Flujo general
 
-## Data model (high level)
-- conversations: per (ig_user_id, peer_id) state + pending_count
-- message_events: per message `mid` unique, no text stored
-- preprocess_runs: windows ready for AI, with `fetch_plan` only
+1. El usuario entra al frontend Angular, inicia sesión y obtiene un token JWT.
+2. El frontend llama a la API con ese token para consultar dashboard, conversaciones, hijos y casos de riesgo.
+3. Instagram envía eventos al webhook de Flask; la API valida la firma, normaliza el payload y guarda solo metadata mínima.
+4. El worker lee los pendientes desde la misma base, crea `preprocess_runs`, resuelve la conversación externa y, si corresponde, prepara el análisis posterior.
+5. Los resultados vuelven a la base y el frontend los vuelve a consultar para mostrar el estado actualizado.
 
-## Security notes (MVP)
-- Backend uses `SUPABASE_SERVICE_ROLE_KEY` (server-side only).
-- Do NOT expose service role key in the frontend.
+## Módulos principales
+
+- `apps/api/`: contratos HTTP, modelos, autenticación y lógica de persistencia.
+- `apps/worker/`: orquestación de colas simples, acceso a Instagram y consumo de IA.
+- `frontend/`: interfaz de operación y visualización.
+- `scripts/`: utilidades de desarrollo local.
+- `DB.md`: detalle del modelo de datos y sus relaciones.
+
+## Documentación por carpeta
+
+- `apps/APPS.md`
+- `apps/api/API.md`
+- `apps/api/models/MODELS.md`
+- `apps/api/routes/ROUTES.md`
+- `apps/api/instance/INSTANCE.md`
+- `apps/worker/WORKER.md`
+- `frontend/FRONTEND.md`
+- `frontend/public/PUBLIC.md`
+- `frontend/src/SRC.md`
+- `frontend/src/environments/ENVIRONMENTS.md`
+- `frontend/src/app/APP.md`
+- `frontend/src/app/core/CORE.md`
+- `frontend/src/app/core/guards/GUARDS.md`
+- `frontend/src/app/core/interceptors/INTERCEPTORS.md`
+- `frontend/src/app/core/services/SERVICES.md`
+- `frontend/src/app/features/FEATURES.md`
+- `frontend/src/app/features/auth/AUTH.md`
+- `frontend/src/app/features/children/CHILDREN.md`
+- `frontend/src/app/features/conversations/CONVERSATIONS.md`
+- `frontend/src/app/features/dashboard/DASHBOARD.md`
+- `frontend/src/app/features/risk-cases/RISK_CASES.md`
+- `frontend/src/app/shared/SHARED.md`
+- `frontend/src/app/shared/components/COMPONENTS.md`
+- `scripts/SCRIPTS.md`
+- `transcripts/TRANSCRIPTS.md`
+
+## Desarrollo local
+
+Dependencias Python:
+
+```bash
+pip install -r requirements.txt
+```
+
+API local:
+
+```bash
+python -m apps.api.app
+```
+
+Worker local:
+
+```bash
+python -m apps.worker.worker
+```
+
+Frontend local:
+
+```bash
+cd frontend
+npm install
+npm start
+```
+
+## Notas de persistencia y seguridad
+
+- El backend valida `X-Hub-Signature-256` antes de aceptar eventos del webhook.
+- La API y el worker comparten la misma base; el frontend solo consume la API.
+- No se expone ningún secreto de servidor al navegador.
+- El detalle del esquema está documentado en `DB.md`.

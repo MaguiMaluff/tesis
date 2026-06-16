@@ -16,7 +16,6 @@ from .ai_prompt import SYSTEM_PROMPT, build_user_prompt
 from .build_transcript import parse_ig_created_time, parse_iso_utc
 from .config import load_worker_config
 from .ig_api import InstagramGraph
-from .jobs import is_synthetic_conversation_ext_id
 from .resolve_conversation import resolve_conversation_ext_id
 
 
@@ -72,20 +71,6 @@ def get_graph_for_conversation(conversation_id: str, api_version: str) -> tuple[
         raise RuntimeError(f"ig_account {ig_account.id} has no access_token")
 
     return InstagramGraph(api_version, ig_account.access_token), ig_account.ig_user_id
-
-
-def resolve_conversation_ext_id_if_needed(conversation: Conversation, graph: InstagramGraph) -> str:
-    conversation_ext_id = conversation.conversation_ext_id
-    if not conversation_ext_id or is_synthetic_conversation_ext_id(conversation_ext_id, conversation.ig_account_id):
-        resolved = resolve_conversation_ext_id(graph, conversation.ig_account_id.ig_user_id, conversation.peer_id)
-        if not resolved:
-            raise RuntimeError(
-                f"Conversation {conversation.id} has no valid conversation_ext_id; rerun preprocessing to resolve it"
-            )
-        conversation.conversation_ext_id = resolved
-        db.session.commit()
-        return resolved
-    return conversation_ext_id
 
 
 def build_window_messages(graph: InstagramGraph, fetch_plan: dict) -> list[dict]:
@@ -205,6 +190,8 @@ def run_once() -> None:
         run_id = run["id"]
         conv_id = run["conversation_id"]
         fetch_plan = run.get("fetch_plan") or {}
+        print("EMPIEZA EL RUN ONCE")
+        print(fetch_plan["conversation_ext_id"])
 
         try:
             mark_run_status(run_id, "processing")
@@ -217,10 +204,21 @@ def run_once() -> None:
                 print(f"[ai] warning ig_user_id mismatch conv={conv.get('ig_user_id')} account={account_ig_user_id}")
 
             conversation = db.session.get(Conversation, conv_id)
-            if conversation:
-                resolve_conversation_ext_id_if_needed(conversation, graph)
-
+            if conversation and not conversation.conversation_ext_id:
+                print("Paso 1")
+                resolved = resolve_conversation_ext_id(graph, account_ig_user_id, conversation.peer_id)
+                if not resolved:
+                    print("Paso 2")
+                    mark_run_status(run_id, "skipped", error="conversation_ext_id missing")
+                    print(f"[ai] skipped run_id={run_id} missing conversation_ext_id")
+                    return
+                print("Paso 3")
+                conversation.conversation_ext_id = resolved
+                db.session.commit()
+            print("Paso 4")
+            print(graph,fetch_plan["ig_user_id"], fetch_plan["conversation_ext_id"])
             window_messages = build_window_messages(graph, fetch_plan)
+            print("Paso 5 ERROR")
             print(f"[ai] run_id={run_id} conv_id={conv_id} window_msgs={len(window_messages)}")
 
             user_prompt = build_user_prompt(

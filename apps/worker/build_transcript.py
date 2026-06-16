@@ -12,7 +12,6 @@ from apps.api.database import db
 from apps.api.models import Conversation, IgAccount, PreprocessRun
 
 from .config import load_worker_config
-from .jobs import is_synthetic_conversation_ext_id
 from .ig_api import InstagramGraph
 from .resolve_conversation import resolve_conversation_ext_id
 
@@ -85,12 +84,12 @@ def _load_conversation(conversation_id: str) -> dict:
             raise SystemExit(f"ig_account not found for conversation: {conversation_id}")
         if not ig_account.access_token:
             raise SystemExit(f"ig_account {ig_account.id} has no access_token")
-        if is_synthetic_conversation_ext_id(conversation.conversation_ext_id, conversation.ig_account_id):
+        if not conversation.conversation_ext_id:
             graph = InstagramGraph(load_worker_config().api_version, ig_account.access_token)
             resolved = resolve_conversation_ext_id(graph, ig_account.ig_user_id, conversation.peer_id)
             if not resolved:
                 raise SystemExit(
-                    f"Conversation {conversation_id} still has synthetic conversation_ext_id; rerun preprocessing first"
+                    f"Conversation {conversation_id} is missing conversation_ext_id; rerun preprocessing first"
                 )
             conversation.conversation_ext_id = resolved
             db.session.commit()
