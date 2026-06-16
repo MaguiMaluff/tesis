@@ -109,11 +109,27 @@ def normalize_instagram_event(ig_user_id: str, evt: dict) -> CanonicalMessage | 
 
     # Ignore "echo" events (platform reflections)
     if bool(msg.get("is_echo")):
-        return None
+        is_echo = bool(msg.get("is_echo"))
+
+        mid = msg.get("mid")
+        if not mid:
+            return None
+
+        text = msg.get("text") or msg.get("message") or ""
+        sent_at = _ts_ms_to_iso(ts_ms)
+
+        # Determine direction and peer_id
+        # In Instagram webhooks, outbound messages are commonly delivered as "echo" events.
+        if is_echo or str(sender_id) == str(ig_user_id):
+            direction = "outbound"
+            peer_id = str(recipient_id)
+        else:
+            direction = "inbound"
+            peer_id = str(sender_id)
 
     mid = msg.get("mid")
     if not mid:
-        return None
+         return None
 
     # Instagram may use "text" or sometimes "message"
     text = msg.get("text") or msg.get("message") or ""
