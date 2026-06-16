@@ -20,7 +20,7 @@ CFG = load_worker_config()
 SB = create_client(CFG.supabase_url, CFG.supabase_service_role_key)
 
 # Instagram Graph API client (used to resolve conversation_ext_id, etc.)
-GRAPH = InstagramGraph(CFG.api_version, CFG.access_token)
+GRAPH = InstagramGraph(CFG.api_version, CFG.access_token_fallback)
 
 def threshold_loop():
     """
@@ -45,7 +45,6 @@ def hourly_loop():
     - Wakes up frequently (hourly_poll_seconds, default 60s)
     - But only runs the sweep when 1 hour has elapsed since last sweep
     """
-    # Recommended: start counting from "now" so it doesn't run immediately on boot.
     last_run = time.time()
 
     while True:

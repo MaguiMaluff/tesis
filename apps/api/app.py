@@ -7,6 +7,7 @@ from .signature import verify_x_hub_signature_256
 from .normalize import normalize_instagram_event
 from .supabase_db import (
     make_supabase,
+    get_ig_account_by_ig_user_id,
     get_or_create_conversation,
     mark_conversation_pending,
     insert_message_event,
@@ -19,6 +20,7 @@ app = Flask(__name__)
 CFG = load_config()
 SB = make_supabase(CFG.supabase_url, CFG.supabase_service_role_key)
 
+
 @app.get("/webhook")
 def webhook_verify():
     mode = request.args.get("hub.mode")
@@ -29,9 +31,9 @@ def webhook_verify():
         return challenge, 200
     return "Verification failed", 403
 
+
 @app.post("/webhook")
 def webhook_receive():
-    # Validate signature
     raw_body = request.get_data()
     sig = request.headers.get("X-Hub-Signature-256")
 
@@ -40,30 +42,34 @@ def webhook_receive():
 
     payload = request.get_json(silent=True) or {}
 
-    # We only handle Instagram object events
     if payload.get("object") != "instagram":
         return "OK", 200
 
     for entry in payload.get("entry", []):
-        entry_id = str(entry.get("id", ""))
-
-        # Only one account
-        if entry_id != CFG.ig_account_id:
+        entry_id = str(entry.get("id", "")).strip()
+        if not entry_id:
             continue
 
+        # Route this webhook entry.id to our DB ig_account
+        ig_account = get_ig_account_by_ig_user_id(SB, entry_id)
+        if not ig_account:
+            # Unknown or disabled account => ignore safely
+            continue
+
+        ig_account_id = ig_account["id"]
+
         for evt in entry.get("messaging", []):
-            # Ignore message_edit events
             if "message_edit" in evt:
                 continue
 
-            cm = normalize_instagram_event(CFG.ig_account_id, evt)
+            # Keep using entry_id (external ig_user_id) to compute direction/outbound
+            cm = normalize_instagram_event(entry_id, evt)
             if cm is None:
                 continue
 
-            # Ensure conversation exists (but do NOT increment pending yet)
-            conv = get_or_create_conversation(SB, cm.ig_user_id, cm.peer_id, cm.sent_at)
+            # Ensure conversation exists for (ig_account_id, peer_id)
+            conv = get_or_create_conversation(SB, ig_account_id, cm.peer_id, cm.sent_at)
 
-            # Insert message event (dedupe by mid unique)
             inserted = insert_message_event(
                 SB,
                 conversation_id=conv["id"],
@@ -75,17 +81,18 @@ def webhook_receive():
             )
 
             if inserted:
-                # Only now increment pending_count/pending_since (non-duplicate message)
                 mark_conversation_pending(SB, conv["id"], cm.sent_at)
-                print(f"[message] mid={cm.mid} peer_id={cm.peer_id} direction={cm.direction}")
+                print(f"[message] ig_account_id={ig_account_id} mid={cm.mid} peer_id={cm.peer_id} direction={cm.direction}")
             else:
-                print(f"[duplicate] mid={cm.mid}")
+                print(f"[duplicate] ig_account_id={ig_account_id} mid={cm.mid}")
 
     return "OK", 200
+
 
 @app.get("/")
 def health():
     return "up", 200
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=CFG.port, debug=True)

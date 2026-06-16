@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone, timedelta
+
 from .resolve_conversation import resolve_conversation_ext_id
 
 
@@ -37,8 +38,7 @@ def claim_conversation_lock(
     Best-effort lock to prevent hourly + threshold from processing the same conversation
     at the same time (and creating multiple preprocess_runs).
 
-    This is not perfectly atomic across multiple workers, but it's good enough for 1 worker instance.
-    If you plan to scale workers horizontally, we should replace this with a single SQL RPC function.
+    NOTE: Requires conversations.processing_lock_until / processing_lock_by columns.
     """
     until_iso = (utc_now() + timedelta(seconds=ttl_seconds)).isoformat()
 
@@ -56,11 +56,9 @@ def claim_conversation_lock(
     lock_until = rows[0].get("processing_lock_until")
     lock_dt = _parse_iso(lock_until)
 
-    # If lock exists and hasn't expired, do not claim.
     if lock_dt and lock_dt > utc_now():
         return False
 
-    # Claim lock (best-effort)
     sb.table("conversations").update(
         {
             "processing_lock_until": until_iso,
@@ -72,7 +70,6 @@ def claim_conversation_lock(
 
 
 def release_conversation_lock(sb, conversation_id: str, lock_by: str):
-    # Release only if we own it (best-effort)
     (
         sb.table("conversations")
         .update({"processing_lock_until": None, "processing_lock_by": None})
@@ -83,26 +80,106 @@ def release_conversation_lock(sb, conversation_id: str, lock_by: str):
 
 
 # ----------------------------
+# IG account lookup helper
+# ----------------------------
+def get_ig_account_for_conversation(sb, conversation_id: str) -> dict:
+    """
+    Fetch conversation + its ig_account row.
+
+    Expects:
+      - conversations.ig_account_id exists (uuid)
+      - ig_accounts.id exists
+    """
+    conv_res = (
+        sb.table("conversations")
+        .select(
+            "id,ig_account_id,peer_id,conversation_ext_id,pending_count,pending_since,last_preprocessed_at"
+        )
+        .eq("id", conversation_id)
+        .limit(1)
+        .execute()
+    )
+    conv_rows = conv_res.data or []
+    if not conv_rows:
+        raise RuntimeError(f"Conversation not found: {conversation_id}")
+    conv = conv_rows[0]
+
+    ig_account_id = conv.get("ig_account_id")
+    if not ig_account_id:
+        raise RuntimeError(f"Conversation {conversation_id} has null ig_account_id")
+
+    acc_res = (
+        sb.table("ig_accounts")
+        .select("id,ig_user_id,status,webhook_enabled")
+        .eq("id", ig_account_id)
+        .limit(1)
+        .execute()
+    )
+    acc_rows = acc_res.data or []
+    if not acc_rows:
+        raise RuntimeError(f"ig_account not found: {ig_account_id}")
+
+    acc = acc_rows[0]
+    return {"conversation": conv, "ig_account": acc}
+
+
+# ----------------------------
 # Preprocess job
 # ----------------------------
 def preprocess_conversation(sb, graph, conv_row: dict, trigger: str):
     """
     Create preprocess_run with a fetch_plan; reset pending_count.
     No IA, no transcript stored.
+
+    IMPORTANT:
+      - graph is created outside (worker.py) using a token (MVP: one global token).
+      - We resolve ig_user_id (external) via ig_accounts using conversations.ig_account_id.
     """
     conv_id = conv_row["id"]
     pending_count = int(conv_row.get("pending_count") or 0)
 
-    # Nothing to do
     if pending_count <= 0:
         return
 
-    # Acquire lock to avoid duplicates across threshold/hourly loops
     lock_by = f"worker:{trigger}"
     if not claim_conversation_lock(sb, conv_id, lock_by=lock_by, ttl_seconds=120):
         return
 
     try:
+        # Re-fetch conversation + ig_account to ensure we have ig_account_id and external ig_user_id
+        lookup = get_ig_account_for_conversation(sb, conv_id)
+        conv_row = lookup["conversation"]
+        ig_account = lookup["ig_account"]
+
+        ig_user_id_ext = ig_account.get("ig_user_id")
+        if not ig_user_id_ext:
+            # Without external ig_user_id we can't resolve conversations via Graph API
+            sb.table("preprocess_runs").insert(
+                {
+                    "conversation_id": conv_id,
+                    "window_start": conv_row.get("pending_since") or conv_row.get("last_preprocessed_at") or utc_now_iso(),
+                    "window_end": utc_now_iso(),
+                    "trigger": trigger,
+                    "status": "skipped",
+                    "message_count": pending_count,
+                    "fetch_plan": {
+                        "source": "instagram",
+                        "api_host": "graph.instagram.com",
+                        "api_version": "env:API_VERSION",
+                        "ig_account_id": conv_row.get("ig_account_id"),
+                        "ig_user_id": None,
+                        "conversation_ext_id": None,
+                        "window_start": conv_row.get("pending_since") or conv_row.get("last_preprocessed_at") or utc_now_iso(),
+                        "window_end": utc_now_iso(),
+                        "strategy": "fetch_by_conversation_then_filter_by_time",
+                        "fields": "id,from,to,message,created_time",
+                        "notes": "Skipped because ig_user_id (external) is missing for ig_account.",
+                    },
+                    "error": "ig_user_id is null on ig_accounts; cannot resolve conversation_ext_id",
+                }
+            ).execute()
+            return
+
         window_start = (
             conv_row.get("pending_since")
             or conv_row.get("last_preprocessed_at")
@@ -110,14 +187,11 @@ def preprocess_conversation(sb, graph, conv_row: dict, trigger: str):
         )
         window_end = utc_now_iso()
 
-        # Resolve conversation_ext_id if missing
         conversation_ext_id = conv_row.get("conversation_ext_id")
+
+        # Resolve conversation_ext_id if missing
         if not conversation_ext_id:
-            resolved = resolve_conversation_ext_id(
-                graph,
-                conv_row["ig_user_id"],
-                conv_row["peer_id"],
-            )
+            resolved = resolve_conversation_ext_id(graph, ig_user_id_ext, conv_row["peer_id"])
             if resolved:
                 conversation_ext_id = resolved
                 (
@@ -127,8 +201,6 @@ def preprocess_conversation(sb, graph, conv_row: dict, trigger: str):
                     .execute()
                 )
 
-        # If we couldn't resolve it, don't create a "ready_for_ai" run.
-        # (Without conversation_ext_id we can't fetch /{conversation_id}/messages.)
         if not conversation_ext_id:
             sb.table("preprocess_runs").insert(
                 {
@@ -142,7 +214,8 @@ def preprocess_conversation(sb, graph, conv_row: dict, trigger: str):
                         "source": "instagram",
                         "api_host": "graph.instagram.com",
                         "api_version": "env:API_VERSION",
-                        "ig_user_id": conv_row.get("ig_user_id"),
+                        "ig_account_id": conv_row.get("ig_account_id"),
+                        "ig_user_id": ig_user_id_ext,
                         "conversation_ext_id": None,
                         "window_start": window_start,
                         "window_end": window_end,
@@ -159,7 +232,8 @@ def preprocess_conversation(sb, graph, conv_row: dict, trigger: str):
             "source": "instagram",
             "api_host": "graph.instagram.com",
             "api_version": "env:API_VERSION",
-            "ig_user_id": conv_row.get("ig_user_id"),
+            "ig_account_id": conv_row.get("ig_account_id"),
+            "ig_user_id": ig_user_id_ext,
             "conversation_ext_id": conversation_ext_id,
             "window_start": window_start,
             "window_end": window_end,
@@ -168,7 +242,6 @@ def preprocess_conversation(sb, graph, conv_row: dict, trigger: str):
             "notes": "Transcript will be reconstructed at AI-send time. No message text stored in DB.",
         }
 
-        # Create preprocess run
         sb.table("preprocess_runs").insert(
             {
                 "conversation_id": conv_id,
@@ -181,7 +254,6 @@ def preprocess_conversation(sb, graph, conv_row: dict, trigger: str):
             }
         ).execute()
 
-        # Reset pending
         sb.table("conversations").update(
             {
                 "pending_count": 0,
