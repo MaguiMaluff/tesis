@@ -1,26 +1,66 @@
 .navbar {
-  background-color: #333;
-  padding: 1rem;
-  color: white;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  padding: 18px 20px 14px;
+  backdrop-filter: blur(18px);
+  background: linear-gradient(180deg, rgba(14, 16, 19, 0.96), rgba(14, 16, 19, 0.74));
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .navbar-container {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+.brand h1 {
+  margin: 2px 0 0;
+  font-size: 1.15rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.brand__eyebrow {
+  display: block;
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #c9b39d;
 }
 
 .nav-links {
-  list-style: none;
   display: flex;
-  gap: 2rem;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
+.logout-button,
 .nav-links a {
-  color: white;
+  color: #f5f0e8;
   text-decoration: none;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.03);
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  cursor: pointer;
 }
 
-.nav-links a:hover {
-  color: #4caf50;
+.logout-button:hover,
+.nav-links a:hover,
+.nav-links a.is-active {
+  border-color: rgba(201, 179, 157, 0.3);
+  background: rgba(201, 179, 157, 0.15);
+  transform: translateY(-1px);
+}
+
+@media (max-width: 720px) {
+  .navbar-container {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }

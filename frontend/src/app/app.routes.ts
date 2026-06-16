@@ -1,12 +1,14 @@
 import { Routes } from '@angular/router';
-import { ConversationsModule } from './features/conversations/conversations-module';
-import { DashboardModule } from './features/dashboard/dashboard-module';
-import { RiskCasesModule } from './features/risk-cases/risk-cases-module';
+import { LoginComponent } from './features/auth/login/login';
+import { SignupComponent } from './features/auth/signup/signup';
+import { AuthGuard } from './core/guards/auth-guard';
 
 export const routes: Routes = [
-  { path: '', redirectTo: '/dashboard', pathMatch: 'full' },
-  { path: 'dashboard', loadChildren: () => import('./features/dashboard/dashboard-module').then(m => m.DashboardModule) },
-  { path: 'conversations', loadChildren: () => import('./features/conversations/conversations-module').then(m => m.ConversationsModule) },
-  { path: 'risk-cases', loadChildren: () => import('./features/risk-cases/risk-cases-module').then(m => m.RiskCasesModule) },
-  { path: '**', redirectTo: '/dashboard' },
+  { path: '', redirectTo: '/login', pathMatch: 'full' },
+  { path: 'login', component: LoginComponent },
+  { path: 'signup', component: SignupComponent },
+  { path: 'dashboard', canActivate: [AuthGuard], loadChildren: () => import('./features/dashboard/dashboard-module').then(m => m.DashboardModule) },
+  { path: 'conversations', canActivate: [AuthGuard], loadChildren: () => import('./features/conversations/conversations-module').then(m => m.ConversationsModule) },
+  { path: 'risk-cases', canActivate: [AuthGuard], loadChildren: () => import('./features/risk-cases/risk-cases-module').then(m => m.RiskCasesModule) },
+  { path: '**', redirectTo: '/login' },
 ];

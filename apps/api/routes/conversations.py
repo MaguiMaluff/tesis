@@ -1,40 +1,62 @@
 from flask import Blueprint, jsonify, g
-from ..app import SB
+
 from ..auth_middleware import token_required
+from ..database import db
+from ..models import IgAccount
+from ..services import (
+    load_user_bundle,
+    serialize_conversation,
+    serialize_conversation_detail,
+    serialize_message_event,
+)
 
-conv_bp = Blueprint('conversations', __name__)
 
-@conv_bp.get('/<account_id>/conversations')
+conversations_bp = Blueprint('conversations', __name__)
+
+
+@conversations_bp.get('/conversations')
 @token_required
-def list_conversations(account_id):
-    """Lista chats de una cuenta de IG, ordenados por actividad reciente."""
-    # Verificación de seguridad: ¿Esta cuenta pertenece a un hijo de este padre?
-    check = SB.table('ig_accounts') \
-        .select('id, children(parent_id)') \
-        .eq('id', account_id) \
-        .single().execute()
-    
-    if not check.data or check.data['children']['parent_id'] != g.user_id:
-        return jsonify({"error": "No autorizado"}), 403
+def list_conversations():
+    bundle = load_user_bundle(g.user_id)
+    payload = [serialize_conversation(conversation, bundle) for conversation in bundle['conversations']]
+    payload.sort(key=lambda item: item.get('last_message_at') or item.get('created_at') or '', reverse=True)
+    return jsonify(payload)
 
-    res = SB.table('conversations') \
-        .select('*') \
-        .eq('ig_account_id', account_id) \
-        .order('last_message_at', desc=True) \
-        .execute()
-    return jsonify(res.data)
 
-@conv_bp.get('/conversations/<conv_id>/events')
+@conversations_bp.get('/conversations/<conversation_id>')
 @token_required
-def get_chat_events(conv_id):
-    """
-    Retorna la línea de tiempo de mensajes de un chat.
-    Solo metadatos (sent_at, direction, features).
-    """
-    # Cambiamos el endpoint dinámicamente si es necesario o usamos rutas absolutas
-    res = SB.table('message_events') \
-        .select('id, sent_at, direction, features') \
-        .eq('conversation_id', conv_id) \
-        .order('sent_at', desc=False) \
-        .execute()
-    return jsonify(res.data)
+def get_conversation(conversation_id):
+    bundle = load_user_bundle(g.user_id)
+    conversation = bundle['conversation_by_id'].get(conversation_id)
+    if not conversation:
+        return jsonify({'error': 'Conversation not found'}), 404
+    return jsonify(serialize_conversation_detail(conversation, bundle))
+
+
+@conversations_bp.get('/conversations/<conversation_id>/events')
+@token_required
+def get_conversation_events(conversation_id):
+    bundle = load_user_bundle(g.user_id)
+    conversation = bundle['conversation_by_id'].get(conversation_id)
+    if not conversation:
+        return jsonify({'error': 'Conversation not found'}), 404
+    events = bundle['events_by_conversation'].get(conversation_id, [])
+    return jsonify([serialize_message_event(event) for event in events])
+
+
+@conversations_bp.get('/conversations/<account_id>/conversations')
+@token_required
+def list_account_conversations(account_id):
+    account = db.session.get(IgAccount, account_id)
+    if not account:
+        return jsonify({'error': 'Account not found'}), 404
+    child = account.child
+    if not child or child.parent_id != g.user_id:
+        return jsonify({'error': 'No autorizado'}), 403
+    bundle = load_user_bundle(g.user_id)
+    payload = [
+        serialize_conversation(conversation, bundle)
+        for conversation in bundle['conversations_by_account'].get(account_id, [])
+    ]
+    payload.sort(key=lambda item: item.get('last_message_at') or item.get('created_at') or '', reverse=True)
+    return jsonify(payload)

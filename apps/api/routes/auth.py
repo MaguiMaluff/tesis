@@ -1,59 +1,64 @@
 from flask import Blueprint, jsonify, request, g
-from ..app import SB
-from ..auth_middleware import token_required
+from werkzeug.security import check_password_hash, generate_password_hash
+
+from ..auth_middleware import create_access_token, token_required
+from ..database import db
+from ..models import User
+from ..services import serialize_user, utcnow
 
 auth_bp = Blueprint('auth', __name__)
 
+
 @auth_bp.post('/login')
 def login():
-    """Inicia sesión y retorna el JWT para el frontend."""
-    data = request.json
-    if not data or 'email' not in data or 'password' not in data:
-        return jsonify({"error": "Email y password requeridos"}), 400
+    data = request.get_json(silent=True) or {}
+    email = str(data.get('email', '')).strip().lower()
+    password = str(data.get('password', ''))
+
+    if not email or not password:
+        return jsonify({'error': 'Email y password requeridos'}), 400
+
+    user = User.query.filter_by(email=email).first()
+    if not user or not check_password_hash(user.password_hash, password):
+        return jsonify({'error': 'Credenciales inválidas'}), 401
+
+    token = create_access_token(user)
+    return jsonify({'access_token': token, 'refresh_token': token, 'user': serialize_user(user)})
     
-    try:
-        res = SB.auth.sign_in_with_password({
-            "email": data['email'], 
-            "password": data['password']
-        })
-        
-        return jsonify({
-            "access_token": res.session.access_token,
-            "refresh_token": res.session.refresh_token,
-            "user": {
-                "id": res.user.id,
-                "email": res.user.email
-            }
-        })
-    except Exception as e:
-        return jsonify({"error": "Credenciales inválidas"}), 401
+
 
 @auth_bp.post('/signup')
 def signup():
-    """Registra un nuevo tutor y lo sincroniza con la tabla app_users."""
-    data = request.json
-    email = data.get('email')
-    password = data.get('password')
     
-    try:
-        # 1. Registro en Supabase Auth
-        res = SB.auth.sign_up({"email": email, "password": password})
-        
-        # 2. Sincronización con tabla pública app_users (usando service role)
-        if res.user:
-            SB.table('app_users').upsert({
-                "id": res.user.id,
-                "email": email,
-                "full_name": data.get('full_name', '')
-            }).execute()
+    data = request.get_json(silent=True) or {}
+    email = str(data.get('email', '')).strip().lower()
+    password = str(data.get('password', ''))
+    full_name = str(data.get('full_name', '')).strip()
 
-        return jsonify({"message": "Usuario creado", "user_id": res.user.id}), 201
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
+    if not email or not password or not full_name:
+        return jsonify({'error': 'Email, password y full_name son requeridos'}), 400
+
+    if User.query.filter_by(email=email).first():
+        return jsonify({'error': 'El email ya está registrado'}), 409
+
+    user = User(email=email, full_name=full_name, created_at=utcnow())
+    user.password_hash = generate_password_hash(password)
+    db.session.add(user)
+    db.session.commit()
+
+    token = create_access_token(user)
+    return jsonify({'message': 'Usuario creado', 'access_token': token, 'refresh_token': token, 'user': serialize_user(user)}), 201
+
+
+@auth_bp.post('/logout')
+def logout():
+    return jsonify({'message': 'Sesión cerrada'})
+
 
 @auth_bp.get('/me')
 @token_required
 def get_profile():
-    """Retorna el perfil del usuario autenticado."""
-    res = SB.table('app_users').select('*').eq('id', g.user_id).single().execute()
-    return jsonify(res.data)
+    user = getattr(g, 'current_user', None)
+    if not user:
+        return jsonify({'error': 'No autenticado'}), 401
+    return jsonify(serialize_user(user))

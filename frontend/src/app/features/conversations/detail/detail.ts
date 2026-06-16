@@ -1,7 +1,8 @@
-import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule, ActivatedRoute } from '@angular/router';
-import { ApiService } from '../../../core/services/api';
+import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
+import { ActivatedRoute, RouterModule } from '@angular/router';
+import { forkJoin, Subscription, switchMap } from 'rxjs';
+import { ApiService, ConversationItem, RiskCaseItem } from '../../../core/services/api';
 
 @Component({
   selector: 'app-conversations-detail',
@@ -10,32 +11,110 @@ import { ApiService } from '../../../core/services/api';
   standalone: true,
   imports: [CommonModule, RouterModule],
 })
-export class DetailComponent implements OnInit {
-  conversation: any;
+export class DetailComponent implements OnInit, OnDestroy {
+  conversation: ConversationItem | null = null;
+  riskCases: RiskCaseItem[] = [];
   loading = true;
+  errorMessage = '';
+
+  private subscription?: Subscription;
 
   constructor(
     private route: ActivatedRoute,
-    private apiService: ApiService
+    private apiService: ApiService,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
-    this.route.params.subscribe((params) => {
-      const id = params['id'];
-      this.apiService.getConversation(id).subscribe({
-        next: (data) => {
-          this.conversation = data;
+    this.subscription = this.route.paramMap
+      .pipe(
+        switchMap((params) => {
+          const id = params.get('id') || '';
+
+          return forkJoin({
+            conversation: this.apiService.getConversation(id),
+            riskCases: this.apiService.getRiskCases(),
+          });
+        })
+      )
+      .subscribe({
+        next: ({ conversation, riskCases }) => {
+          this.conversation = conversation;
+          this.riskCases = riskCases.filter(
+            (riskCase) => riskCase.conversation_id === conversation.id
+          );
           this.loading = false;
+          this.cdr.detectChanges();
         },
-        error: (err) => {
-          console.error('Error fetching conversation:', err);
+        error: (error) => {
+          console.error('Error fetching conversation:', error);
+          this.errorMessage = 'No se pudo cargar el detalle de la conversación.';
           this.loading = false;
+          this.cdr.detectChanges();
         },
       });
-    });
+  }
+
+  ngOnDestroy(): void {
+    this.subscription?.unsubscribe();
   }
 
   goBack(): void {
     window.history.back();
+  }
+
+  get summary(): Record<string, unknown> {
+    return (this.conversation?.rolling_summary as Record<string, unknown>) || {};
+  }
+
+  get currentStageMax(): number | string {
+    return (this.summary['current_stage_max'] as number | undefined) ?? 'N/A';
+  }
+
+  get trendLabel(): string {
+    return (this.summary['trend'] as string) || 'stable';
+  }
+
+  get keyPoints(): string[] {
+    return (this.summary['key_points_safe'] as string[]) || [];
+  }
+
+  get signals(): string[] {
+    const summarySignals = (this.summary['signals_observed'] as string[]) || [];
+    const riskCaseSignals = this.riskCases.flatMap((riskCase) => riskCase.signals || []);
+    return [...new Set([...summarySignals, ...riskCaseSignals])].slice(0, 8);
+  }
+
+  get maxStage(): number {
+    return Math.max(...this.riskCases.map((riskCase) => riskCase.stage), 0);
+  }
+
+  get riskLevel(): string {
+    const maxConfidence = Math.max(
+      ...this.riskCases.map((riskCase) => Number(riskCase.confidence || 0)),
+      0
+    );
+
+    if (this.maxStage >= 4 || maxConfidence >= 0.9) {
+      return 'critical';
+    }
+
+    if (this.maxStage >= 3 || maxConfidence >= 0.7) {
+      return 'high';
+    }
+
+    if (this.maxStage >= 2 || maxConfidence >= 0.45) {
+      return 'medium';
+    }
+
+    return 'low';
+  }
+
+  trackById(_: number, item: { id: string }): string {
+    return item.id;
+  }
+
+  trackByString(_: number, value: string): string {
+    return value;
   }
 }

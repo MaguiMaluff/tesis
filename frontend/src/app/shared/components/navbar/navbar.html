@@ -1,10 +1,13 @@
 <nav class="navbar">
   <div class="navbar-container">
-    <h1>tesis</h1>
-    <ul class="nav-links">
-      <li><a routerLink="/conversations">Conversations</a></li>
-      <li><a routerLink="/risk-cases">Risk Cases</a></li>
-      <li><a routerLink="/dashboard">Dashboard</a></li>
-    </ul>
+    <div class="brand">
+      <span class="brand__eyebrow">Grooming monitor</span>
+      <h1>Dashboard</h1>
+    </div>
+
+    <div class="nav-links">
+      <a routerLink="/dashboard" routerLinkActive="is-active" [routerLinkActiveOptions]="{ exact: true }">Hijos</a>
+      <button type="button" class="logout-button" (click)="logout()">Logout</button>
+    </div>
   </div>
 </nav>

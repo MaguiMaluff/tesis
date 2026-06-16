@@ -1,18 +1,127 @@
-<div class="dashboard">
-  <h2>Dashboard</h2>
-  <div *ngIf="loading" class="loading">Loading...</div>
-  <div *ngIf="!loading" class="stats">
-    <div class="stat-card">
-      <h3>Total Cases</h3>
-      <p>{{ stats.total_cases }}</p>
+<section class="dashboard" *ngIf="!loading && summary; else loadingState">
+  <header class="hero">
+    <div>
+      <p class="eyebrow">Operations dashboard</p>
+      <h2>Monitored profiles and risk telemetry</h2>
+      <p class="muted">
+        Real data from the Flask API. Profiles, conversations and risk cases are refreshed from the API, not mocked.
+      </p>
     </div>
-    <div class="stat-card critical">
-      <h3>Critical</h3>
-      <p>{{ stats.critical }}</p>
+
+    <div class="hero-actions">
+      <div class="hero__badge">{{ summary.totals.open_risk_cases }} open cases</div>
+      <a class="hero__cta" routerLink="/dashboard/new">Agregar hijo</a>
     </div>
-    <div class="stat-card high">
-      <h3>High Risk</h3>
-      <p>{{ stats.high }}</p>
-    </div>
+  </header>
+
+  <div class="metric-grid">
+    <article class="metric-card">
+      <span>Profiles</span>
+      <strong>{{ summary.totals.profiles }}</strong>
+    </article>
+    <article class="metric-card">
+      <span>Conversations</span>
+      <strong>{{ summary.totals.conversations }}</strong>
+    </article>
+    <article class="metric-card">
+      <span>Risk cases</span>
+      <strong>{{ summary.totals.risk_cases }}</strong>
+    </article>
+    <article class="metric-card accent">
+      <span>Open risk cases</span>
+      <strong>{{ summary.totals.open_risk_cases }}</strong>
+    </article>
   </div>
-</div>
+
+  <section class="panel panel--wide children-panel">
+    <div class="panel__header">
+      <h3>Monitored profiles</h3>
+      <div class="panel-actions">
+        <span class="pill">{{ children.length }} cards</span>
+        <a class="hero__cta" routerLink="/dashboard/new">Agregar hijo</a>
+      </div>
+    </div>
+
+    <ng-container *ngIf="children.length > 0; else emptyChildrenState">
+      <div class="profile-grid">
+        <a class="profile-card" *ngFor="let child of children; trackBy: trackById" [routerLink]="['/dashboard', child.id]">
+          <div class="profile-card__top">
+            <strong>{{ child.display_name }}</strong>
+            <span class="risk-pill" [attr.data-level]="child.risk_level">{{ child.max_risk_label }}</span>
+          </div>
+
+          <p class="profile-card__meta">
+            {{ child.conversations_count }} conversations · {{ child.risk_cases_count }} risk cases
+          </p>
+
+          <div class="profile-card__stats">
+            <span>Peak risk</span>
+            <strong>{{ child.max_risk_stage }}</strong>
+          </div>
+
+          <div class="signals" *ngIf="child.latest_signals.length; else noSignals">
+            <span class="signal" *ngFor="let signal of child.latest_signals; trackBy: trackBySignal">{{ signal }}</span>
+          </div>
+          <ng-template #noSignals>
+            <p class="profile-card__empty">No signals detected yet.</p>
+          </ng-template>
+
+          <span class="profile-card__footer">Last activity {{ child.last_activity_at | date: 'medium' }}</span>
+        </a>
+      </div>
+    </ng-container>
+
+    <ng-template #emptyChildrenState>
+      <div class="empty-children">
+        <h3>Todavía no tienes hijos registrados</h3>
+        <p>Agrega un hijo para comenzar a monitorear una cuenta.</p>
+        <a class="hero__cta" routerLink="/dashboard/new">Agregar hijo</a>
+      </div>
+    </ng-template>
+  </section>
+
+  <div class="layout-grid">
+    <section class="panel">
+      <div class="panel__header">
+        <h3>Cases by stage</h3>
+        <span class="pill">Stage distribution</span>
+      </div>
+
+      <div class="stage-list">
+        <article class="stage-row" *ngFor="let item of summary.cases_by_stage">
+          <div class="stage-row__label">
+            <strong>Stage {{ item.stage }}</strong>
+            <span>{{ item.label }}</span>
+          </div>
+          <div class="stage-row__bar">
+            <span [style.width.%]="(item.count / maxStageCount()) * 100"></span>
+          </div>
+          <strong class="stage-row__count">{{ item.count }}</strong>
+        </article>
+      </div>
+    </section>
+  </div>
+
+  <div class="layout-grid lower">
+    <section class="panel">
+      <div class="panel__header">
+        <h3>Risk trend</h3>
+        <span class="pill">Last {{ summary.risk_trend.length }} events</span>
+      </div>
+
+      <div class="trend-chart">
+        <div class="trend-point" *ngFor="let point of summary.risk_trend" [style.height.%]="(point.stage / 4) * 100 + 18">
+          <span></span>
+          <small>{{ point.stage }}</small>
+        </div>
+      </div>
+    </section>
+  </div>
+</section>
+
+<ng-template #loadingState>
+  <section class="dashboard dashboard--loading">
+    <div *ngIf="loading" class="loading-card">Loading dashboard from API...</div>
+    <div *ngIf="!loading && errorMessage" class="loading-card loading-card--error">{{ errorMessage }}</div>
+  </section>
+</ng-template>

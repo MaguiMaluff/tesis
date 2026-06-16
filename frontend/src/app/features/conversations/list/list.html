@@ -1,12 +1,57 @@
-<div class="conversations-list">
-  <h2>Conversations</h2>
-  <div *ngIf="loading" class="loading">Loading...</div>
-  <div *ngIf="!loading && conversations.length === 0" class="empty">No conversations</div>
-  <ul *ngIf="!loading && conversations.length > 0">
-    <li *ngFor="let conv of conversations">
-      <a [routerLink]="['/conversations', conv.id]">
-        {{ conv.peer_id }} - {{ conv.last_message_at | date }}
-      </a>
-    </li>
-  </ul>
-</div>
+<section class="conversations-page" *ngIf="!loading; else loadingState">
+  <header class="hero">
+    <div>
+      <p class="eyebrow">Conversation monitoring</p>
+      <h2>Tracked conversations</h2>
+      <p class="muted">Search by peer, child or status. Sorted from the latest activity by default.</p>
+    </div>
+
+    <div class="toolbar">
+      <input
+        class="search"
+        type="search"
+        [value]="searchTerm"
+        (input)="searchTerm = $any($event.target).value"
+        placeholder="Search conversations"
+      />
+
+      <div class="sort-group">
+        <button type="button" [class.is-active]="sortOrder === 'recent'" (click)="setSortOrder('recent')">Recent</button>
+        <button type="button" [class.is-active]="sortOrder === 'oldest'" (click)="setSortOrder('oldest')">Oldest</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="loading-card loading-card--error" *ngIf="errorMessage">{{ errorMessage }}</div>
+
+  <div class="conversation-grid" *ngIf="visibleConversations.length; else emptyState">
+    <a class="conversation-card" *ngFor="let conversation of visibleConversations; trackBy: trackById" [routerLink]="['/conversations', conversation.id]">
+      <div class="conversation-card__top">
+        <div>
+          <span class="label">Peer</span>
+          <strong>{{ conversation.peer_id }}</strong>
+        </div>
+
+        <span class="risk-pill" [attr.data-level]="conversation.risk_level">{{ conversation.max_stage_label || 'Sin señales' }}</span>
+      </div>
+
+      <p class="conversation-card__meta" *ngIf="conversation.child_name">Profile: {{ conversation.child_name }}</p>
+      <p class="conversation-card__meta">Status: {{ conversation.status }} · {{ conversation.messages_count || 0 }} messages</p>
+
+      <div class="conversation-card__footer">
+        <span>{{ conversation.last_message_at | date: 'medium' }}</span>
+        <span>{{ conversation.pending_count || 0 }} pending</span>
+      </div>
+    </a>
+  </div>
+
+  <ng-template #emptyState>
+    <div class="empty-state">No conversations matched the current filters.</div>
+  </ng-template>
+</section>
+
+<ng-template #loadingState>
+  <section class="conversations-page conversations-page--loading">
+    <div class="loading-card">Loading conversations...</div>
+  </section>
+</ng-template>

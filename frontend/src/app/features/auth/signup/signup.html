@@ -1,0 +1,47 @@
+<section class="signup-shell">
+  <div class="signup-card">
+    <div class="signup-card__copy">
+      <p class="eyebrow">Create account</p>
+      <h1>Registro de usuario</h1>
+      <p>Creá tu cuenta para acceder al monitoreo y luego agregar hijos desde el dashboard.</p>
+    </div>
+
+    <form class="signup-form" [formGroup]="signupForm" (ngSubmit)="submit()" novalidate>
+      <label>
+        <span>Nombre completo</span>
+        <input type="text" formControlName="full_name" placeholder="Usuario" autocomplete="name" />
+        <small *ngIf="fullNameInvalid">El nombre es obligatorio.</small>
+      </label>
+
+      <label>
+        <span>Email</span>
+        <input type="email" formControlName="email" placeholder="tu@email.com" autocomplete="email" />
+        <small *ngIf="emailInvalid">Ingresa un email válido.</small>
+      </label>
+
+      <label>
+        <span>Contraseña</span>
+        <input type="password" formControlName="password" placeholder="••••••••" autocomplete="new-password" />
+        <small *ngIf="passwordInvalid">La contraseña debe tener al menos 6 caracteres.</small>
+      </label>
+
+      <label>
+        <span>Confirmar contraseña</span>
+        <input
+          type="password"
+          formControlName="confirm_password"
+          placeholder="••••••••"
+          autocomplete="new-password"
+        />
+        <small *ngIf="confirmPasswordInvalid">Las contraseñas deben coincidir.</small>
+      </label>
+
+      <div class="success" *ngIf="successMessage">{{ successMessage }}</div>
+      <div class="error" *ngIf="errorMessage">{{ errorMessage }}</div>
+
+      <button type="submit" [disabled]="loading">{{ loading ? 'Creando...' : 'Crear cuenta' }}</button>
+
+      <a class="login-link" routerLink="/login">Volver al login</a>
+    </form>
+  </div>
+</section>
