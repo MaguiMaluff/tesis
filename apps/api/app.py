@@ -40,6 +40,8 @@ app.register_blueprint(conversations_bp)
 app.register_blueprint(risk_bp)
 app.register_blueprint(dashboard_bp)
 app.register_blueprint(stats_bp, url_prefix="/stats")
+
+
 def _get_or_create_conversation(account: IgAccount, peer_id: str, sent_at: str | None) -> Conversation:
     conversation = Conversation.query.filter_by(ig_account_id=account.id, peer_id=peer_id).first()
     if conversation:
@@ -156,7 +158,3 @@ def health():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=CFG.port, debug=True, use_reloader=False)
-    from sqlalchemy import text
-
-with app.app_context():
-    print("DB URL:", db.engine.url)

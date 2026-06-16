@@ -99,18 +99,6 @@ def build_graph_for_conversation(conversation_id: str, api_version: str) -> tupl
     return graph, str(ig_account.get("ig_user_id") or "")
 
 
-def is_synthetic_conversation_ext_id(conversation_ext_id: str | None, conversation_id: str | None = None) -> bool:
-    if not conversation_ext_id:
-        return False
-    if conversation_id and conversation_ext_id.startswith(f"{conversation_id}:"):
-        return True
-    if ":" in conversation_ext_id:
-        left, right = conversation_ext_id.split(":", 1)
-        if len(left) == 36 and len(right) > 0:
-            return True
-    return False
-
-
 def _build_fetch_plan(conv_row: dict, ig_user_id_ext: str | None, conversation_ext_id: str | None, window_start, window_end):
     return {
         "source": "instagram",
@@ -192,10 +180,8 @@ def preprocess_conversation(api_version: str, conv_row: dict, trigger: str):
                 return
 
             conversation_ext_id = conversation.conversation_ext_id
-            if is_synthetic_conversation_ext_id(conversation_ext_id, conversation.ig_account_id):
-                conversation_ext_id = None
             if not conversation_ext_id:
-                resolved = resolve_conversation_ext_id(graph, conversation.ig_account_id.ig_user_id, conversation.peer_id)
+                resolved = resolve_conversation_ext_id(graph, ig_user_id_ext, conversation.peer_id)
                 if resolved:
                     conversation.conversation_ext_id = resolved
                     conversation_ext_id = resolved
