@@ -4,7 +4,8 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from ..auth_middleware import create_access_token, token_required
 from ..database import db
 from ..models import User
-from ..services import serialize_user, utcnow
+from ..service_modules.serializers import serialize_user
+from ..service_modules.utils import utcnow
 
 auth_bp = Blueprint('auth', __name__)
 

@@ -40,13 +40,13 @@ class InstagramGraph:
             params={
                 "platform": "instagram",
                 "limit": limit,
-                "fields": "id,updated_time,participants"
+                "fields": "id,updated_time,participants{id,username,name}"
             },
             max_pages=max_pages,
     )
     def list_messages(self, conversation_id: str, limit=50, max_pages=20):
         return self.paginate(
             f"{conversation_id}/messages",
-            params={"limit": limit, "fields": "id,from,to,message,created_time"},
+            params={"limit": limit, "fields": "id,from{id,username,name},to{id,username,name},message,created_time"},
             max_pages=max_pages,
         )

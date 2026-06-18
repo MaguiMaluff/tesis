@@ -7,6 +7,7 @@
   display: grid;
   place-items: center;
   padding: 24px;
+  color: var(--color-ink);
 }
 
 .login-card {
@@ -16,9 +17,9 @@
   gap: 24px;
   padding: 28px;
   border-radius: 28px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(16, 18, 22, 0.82);
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--color-border);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(255, 248, 252, 0.92));
+  box-shadow: var(--shadow-soft);
   backdrop-filter: blur(18px);
 }
 
@@ -33,7 +34,8 @@
   text-transform: uppercase;
   letter-spacing: 0.16em;
   font-size: 0.72rem;
-  color: #c9b39d;
+  color: #d95f92;
+  font-weight: 700;
 }
 
 h1,
@@ -46,7 +48,7 @@ h1 {
 }
 
 .login-card__copy p:last-child {
-  color: rgba(243, 239, 231, 0.72);
+  color: var(--color-muted);
   line-height: 1.55;
 }
 
@@ -55,8 +57,8 @@ h1 {
   gap: 16px;
   padding: 22px;
   border-radius: 22px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--color-surface-strong);
+  border: 1px solid var(--color-border);
 }
 
 label {
@@ -66,43 +68,47 @@ label {
 
 label span {
   font-size: 0.9rem;
-  color: rgba(243, 239, 231, 0.78);
+  color: var(--color-muted);
+  font-weight: 600;
 }
 
 input {
   width: 100%;
   padding: 14px 16px;
   border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(9, 10, 13, 0.72);
-  color: #f5f0e8;
+  border: 1px solid var(--color-border);
+  background: #fff;
+  color: var(--color-ink);
   outline: none;
 }
 
 input:focus {
-  border-color: rgba(201, 179, 157, 0.55);
-  box-shadow: 0 0 0 3px rgba(201, 179, 157, 0.14);
+  border-color: #8fd6f5;
+  box-shadow: 0 0 0 3px rgba(199, 238, 255, 0.75);
 }
 
 small,
 .error {
-  color: #f8aa97;
+  color: var(--color-red);
 }
 
 
 .signup-link {
   justify-self: center;
-  color: rgba(243, 239, 231, 0.78);
+  color: var(--color-muted);
   text-decoration: none;
+  font-weight: 600;
 }
+
 button {
   padding: 14px 16px;
   border: 0;
   border-radius: 16px;
-  color: #141414;
-  background: linear-gradient(135deg, #f7e7d3, #c9b39d);
+  color: var(--color-ink);
+  background: linear-gradient(135deg, var(--color-yellow), #ffd8e8);
   font-weight: 700;
   cursor: pointer;
+  box-shadow: 0 12px 26px rgba(255, 212, 126, 0.28);
 }
 
 button:disabled {

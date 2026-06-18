@@ -85,5 +85,5 @@ npm start
 
 - El backend valida `X-Hub-Signature-256` antes de aceptar eventos del webhook.
 - La API y el worker comparten la misma base; el frontend solo consume la API.
-- No se expone ningún secreto de servidor al navegador.
+- El frontend autenticado envía y recibe el `access_token` de Instagram asociado a cada perfil monitoreado, porque el flujo actual de alta y administración lo requiere.
 - El detalle del esquema está documentado en `DB.md`.

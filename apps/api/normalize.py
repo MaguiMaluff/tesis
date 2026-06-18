@@ -96,8 +96,10 @@ def normalize_instagram_event(ig_user_id: str, evt: dict) -> CanonicalMessage | 
 
     Returns None when:
       - event is not a message
-      - message is an echo (is_echo)
       - required IDs or mid are missing
+
+    Echo events are kept as outbound messages because Instagram commonly uses
+    them to notify messages sent by the monitored account.
     """
     sender_id = (evt.get("sender") or {}).get("id")
     recipient_id = (evt.get("recipient") or {}).get("id")
@@ -107,29 +109,9 @@ def normalize_instagram_event(ig_user_id: str, evt: dict) -> CanonicalMessage | 
     if not isinstance(msg, dict):
         return None
 
-    # Ignore "echo" events (platform reflections)
-    if bool(msg.get("is_echo")):
-        is_echo = bool(msg.get("is_echo"))
-
-        mid = msg.get("mid")
-        if not mid:
-            return None
-
-        text = msg.get("text") or msg.get("message") or ""
-        sent_at = _ts_ms_to_iso(ts_ms)
-
-        # Determine direction and peer_id
-        # In Instagram webhooks, outbound messages are commonly delivered as "echo" events.
-        if is_echo or str(sender_id) == str(ig_user_id):
-            direction = "outbound"
-            peer_id = str(recipient_id)
-        else:
-            direction = "inbound"
-            peer_id = str(sender_id)
-
     mid = msg.get("mid")
     if not mid:
-         return None
+        return None
 
     # Instagram may use "text" or sometimes "message"
     text = msg.get("text") or msg.get("message") or ""
@@ -137,12 +119,16 @@ def normalize_instagram_event(ig_user_id: str, evt: dict) -> CanonicalMessage | 
     sent_at = _ts_ms_to_iso(ts_ms)
 
     # Determine direction and peer_id:
-    # - outbound: sender is our ig_user_id
+    # - outbound: sender is our ig_user_id, or an echo event reflects our sent message
     # - inbound: sender is the other user
-    if str(sender_id) == str(ig_user_id):
+    if bool(msg.get("is_echo")) or str(sender_id) == str(ig_user_id):
+        if not recipient_id:
+            return None
         direction = "outbound"
         peer_id = str(recipient_id)
     else:
+        if not sender_id:
+            return None
         direction = "inbound"
         peer_id = str(sender_id)
 

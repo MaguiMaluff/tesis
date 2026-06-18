@@ -1,17 +1,18 @@
 <section class="risk-cases-page" *ngIf="!loading; else loadingState">
   <header class="hero">
     <div>
-      <p class="eyebrow">Risk cases</p>
-      <h2>Live risk inventory</h2>
-      <p class="muted">Filter by stage, severity or status and inspect each case in detail.</p>
+      <p class="eyebrow">Casos de riesgo</p>
+      <h2>Inventario de alertas</h2>
+      <p class="muted">Filtrar por etapa, severidad o estado e inspeccionar cada caso.</p>
     </div>
 
     <div class="toolbar">
-      <input class="search" type="search" [value]="searchTerm" (input)="searchTerm = $any($event.target).value" placeholder="Search risk cases" />
+      <button type="button" class="back-button" (click)="goBack()">Volver</button>
+      <input class="search" type="search" [value]="searchTerm" (input)="searchTerm = $any($event.target).value" placeholder="Buscar casos" />
 
       <div class="filters">
         <select [value]="selectedStage" (change)="selectedStage = $any($event.target).value">
-          <option value="all">All stages</option>
+          <option value="all">Todas las etapas</option>
           <option value="0">0</option>
           <option value="1">1</option>
           <option value="2">2</option>
@@ -20,22 +21,22 @@
         </select>
 
         <select [value]="selectedSeverity" (change)="selectedSeverity = $any($event.target).value">
-          <option value="all">All severities</option>
-          <option value="low">Low</option>
-          <option value="medium">Medium</option>
-          <option value="high">High</option>
-          <option value="critical">Critical</option>
+          <option value="all">Todas las severidades</option>
+          <option value="low">Baja</option>
+          <option value="medium">Media</option>
+          <option value="high">Alta</option>
+          <option value="critical">Crítica</option>
         </select>
 
         <select [value]="selectedStatus" (change)="selectedStatus = $any($event.target).value">
-          <option value="all">All statuses</option>
-          <option value="open">Open</option>
-          <option value="closed">Closed</option>
+          <option value="all">Todos los estados</option>
+          <option value="open">Abierto</option>
+          <option value="closed">Cerrado</option>
         </select>
 
         <div class="sort-group">
-          <button type="button" [class.is-active]="sortOrder === 'recent'" (click)="setSortOrder('recent')">Recent</button>
-          <button type="button" [class.is-active]="sortOrder === 'oldest'" (click)="setSortOrder('oldest')">Oldest</button>
+          <button type="button" [class.is-active]="sortOrder === 'recent'" (click)="setSortOrder('recent')">Recientes</button>
+          <button type="button" [class.is-active]="sortOrder === 'oldest'" (click)="setSortOrder('oldest')">Antiguos</button>
         </div>
       </div>
     </div>
@@ -44,29 +45,29 @@
   <div class="loading-card loading-card--error" *ngIf="errorMessage">{{ errorMessage }}</div>
 
   <div class="risk-grid" *ngIf="filteredRiskCases.length; else emptyState">
-    <a class="risk-card" *ngFor="let riskCase of filteredRiskCases; trackBy: trackById" [routerLink]="['/risk-cases', riskCase.id]">
+    <a class="risk-card" *ngFor="let riskCase of filteredRiskCases; trackBy: trackById" [routerLink]="['/risk-cases', riskCase.id]" [attr.data-risk]="riskCase.risk_level || 'low'">
       <div class="risk-card__top">
         <div>
-          <span class="label">Stage</span>
+          <span class="label">Etapa</span>
           <strong>{{ riskCase.stage_label || riskCase.stage }}</strong>
         </div>
 
-        <span class="risk-pill" [attr.data-level]="riskCase.risk_level">{{ riskCase.risk_level || 'low' }}</span>
+        <span class="risk-pill" [attr.data-level]="riskCase.risk_level">{{ riskLevelLabel(riskCase.risk_level) }}</span>
       </div>
 
-      <p class="risk-card__meta">Confidence {{ riskCase.confidence | percent: '1.0-0' }} · {{ riskCase.status }}</p>
-      <p class="risk-card__meta">Opened {{ riskCase.opened_at | date: 'medium' }}</p>
-      <p class="risk-card__reason">{{ riskCase.reason_safe || 'AI reason unavailable' }}</p>
+      <p class="risk-card__meta">{{ contactLabel(riskCase) }} · Confianza {{ riskCase.confidence | percent: '1.0-0' }} · {{ statusLabel(riskCase.status) }}</p>
+      <p class="risk-card__meta">Abierto {{ riskCase.opened_at | date: 'dd/MM/yyyy, HH:mm' }}</p>
+      <p class="risk-card__reason">{{ riskCase.reason_safe || 'Motivo no disponible' }}</p>
     </a>
   </div>
 
   <ng-template #emptyState>
-    <div class="empty-state">No risk cases matched the selected filters.</div>
+    <div class="empty-state">No hay casos de riesgo para los filtros seleccionados.</div>
   </ng-template>
 </section>
 
 <ng-template #loadingState>
   <section class="risk-cases-page risk-cases-page--loading">
-    <div class="loading-card">Loading risk cases...</div>
+    <div class="loading-card">Cargando casos de riesgo...</div>
   </section>
 </ng-template>

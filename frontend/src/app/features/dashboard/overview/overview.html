@@ -1,43 +1,43 @@
 <section class="dashboard" *ngIf="!loading && summary; else loadingState">
   <header class="hero">
     <div>
-      <p class="eyebrow">Operations dashboard</p>
-      <h2>Monitored profiles and risk telemetry</h2>
+      <p class="eyebrow">Panel operativo</p>
+      <h2>Perfiles monitoreados y riesgo</h2>
       <p class="muted">
-        Real data from the Flask API. Profiles, conversations and risk cases are refreshed from the API, not mocked.
+        Seguimiento de perfiles, conversaciones y casos de riesgo activos.
       </p>
     </div>
 
     <div class="hero-actions">
-      <div class="hero__badge">{{ summary.totals.open_risk_cases }} open cases</div>
+      <div class="hero__badge">{{ summary.totals.open_risk_cases }} casos abiertos</div>
       <a class="hero__cta" routerLink="/dashboard/new">Agregar hijo</a>
     </div>
   </header>
 
   <div class="metric-grid">
     <article class="metric-card">
-      <span>Profiles</span>
+      <span>Perfiles</span>
       <strong>{{ summary.totals.profiles }}</strong>
     </article>
     <article class="metric-card">
-      <span>Conversations</span>
+      <span>Conversaciones</span>
       <strong>{{ summary.totals.conversations }}</strong>
     </article>
     <article class="metric-card">
-      <span>Risk cases</span>
+      <span>Casos de riesgo</span>
       <strong>{{ summary.totals.risk_cases }}</strong>
     </article>
     <article class="metric-card accent">
-      <span>Open risk cases</span>
+      <span>Casos abiertos</span>
       <strong>{{ summary.totals.open_risk_cases }}</strong>
     </article>
   </div>
 
   <section class="panel panel--wide children-panel">
     <div class="panel__header">
-      <h3>Monitored profiles</h3>
+      <h3>Perfiles monitoreados</h3>
       <div class="panel-actions">
-        <span class="pill">{{ children.length }} cards</span>
+        <span class="pill">{{ children.length }} perfiles</span>
         <a class="hero__cta" routerLink="/dashboard/new">Agregar hijo</a>
       </div>
     </div>
@@ -47,15 +47,15 @@
         <a class="profile-card" *ngFor="let child of children; trackBy: trackById" [routerLink]="['/dashboard', child.id]">
           <div class="profile-card__top">
             <strong>{{ child.display_name }}</strong>
-            <span class="risk-pill" [attr.data-level]="child.risk_level">{{ child.max_risk_label }}</span>
+            <span class="risk-pill" [attr.data-level]="child.risk_level">{{ riskLevelLabel(child.risk_level) }}</span>
           </div>
 
           <p class="profile-card__meta">
-            {{ child.conversations_count }} conversations · {{ child.risk_cases_count }} risk cases
+            {{ child.conversations_count }} conversaciones · {{ child.risk_cases_count }} casos de riesgo
           </p>
 
           <div class="profile-card__stats">
-            <span>Peak risk</span>
+            <span>Riesgo máximo</span>
             <strong>{{ child.max_risk_stage }}</strong>
           </div>
 
@@ -63,10 +63,10 @@
             <span class="signal" *ngFor="let signal of child.latest_signals; trackBy: trackBySignal">{{ signal }}</span>
           </div>
           <ng-template #noSignals>
-            <p class="profile-card__empty">No signals detected yet.</p>
+            <p class="profile-card__empty">Todavía no hay señales detectadas.</p>
           </ng-template>
 
-          <span class="profile-card__footer">Last activity {{ child.last_activity_at | date: 'medium' }}</span>
+          <span class="profile-card__footer">Última actividad {{ child.last_activity_at | date: 'dd/MM/yyyy, HH:mm' }}</span>
         </a>
       </div>
     </ng-container>
@@ -80,40 +80,89 @@
     </ng-template>
   </section>
 
-  <div class="layout-grid">
+  <section class="panel education-panel">
+    <div class="panel__header">
+      <div>
+        <h3>Información para la prevención</h3>
+        <p class="panel-subtitle">Síntesis basada en Grooming Argentina.</p>
+      </div>
+      <a class="source-link" href="https://groomingarg.org/" target="_blank" rel="noopener noreferrer">Fuente</a>
+    </div>
+
+    <div class="education-grid">
+      <article class="info-card info-card--wide">
+        <span class="info-card__eyebrow">Definición</span>
+        <h4>¿Qué es el grooming?</h4>
+        <p>
+          Es una forma de violencia sexual en entornos digitales. Una persona adulta establece contacto con fines
+          sexuales mediante engaño, manipulación y construcción progresiva de confianza.
+        </p>
+      </article>
+
+      <article class="info-card">
+        <span class="info-card__eyebrow">Daño real</span>
+        <h4>No requiere contacto físico</h4>
+        <p>
+          El daño puede producirse dentro de la conversación y afectar privacidad, autonomía y bienestar emocional.
+        </p>
+      </article>
+
+      <article class="info-card">
+        <span class="info-card__eyebrow">Respuesta</span>
+        <h4>Prevención y detección temprana</h4>
+        <p>
+          La detección de señales permite ordenar la revisión, acompañar a la familia y actuar con más rapidez.
+        </p>
+      </article>
+    </div>
+  </section>
+
+  <div class="knowledge-grid">
     <section class="panel">
       <div class="panel__header">
-        <h3>Cases by stage</h3>
-        <span class="pill">Stage distribution</span>
+        <h3>Etapas del proceso</h3>
+        <span class="pill">Referencia</span>
       </div>
 
-      <div class="stage-list">
-        <article class="stage-row" *ngFor="let item of summary.cases_by_stage">
-          <div class="stage-row__label">
-            <strong>Stage {{ item.stage }}</strong>
-            <span>{{ item.label }}</span>
-          </div>
-          <div class="stage-row__bar">
-            <span [style.width.%]="(item.count / maxStageCount()) * 100"></span>
-          </div>
-          <strong class="stage-row__count">{{ item.count }}</strong>
+      <div class="stage-list stage-list--text">
+        <article class="stage-row stage-row--text">
+          <strong>Enganche</strong>
+          <span>Primer contacto, atención sostenida y búsqueda de cercanía.</span>
+        </article>
+        <article class="stage-row stage-row--text">
+          <strong>Confianza</strong>
+          <span>Validación emocional, secretos y vínculo exclusivo.</span>
+        </article>
+        <article class="stage-row stage-row--text">
+          <strong>Sexualización</strong>
+          <span>Introducción gradual de conversaciones, pedidos o relatos íntimos.</span>
+        </article>
+        <article class="stage-row stage-row--text">
+          <strong>Explotación</strong>
+          <span>Coacción, amenazas, pedido de material íntimo o propuesta de encuentro.</span>
         </article>
       </div>
     </section>
-  </div>
 
-  <div class="layout-grid lower">
     <section class="panel">
       <div class="panel__header">
-        <h3>Risk trend</h3>
-        <span class="pill">Last {{ summary.risk_trend.length }} events</span>
+        <h3>Enfoque de intervención</h3>
+        <span class="pill">Guía</span>
       </div>
 
-      <div class="trend-chart">
-        <div class="trend-point" *ngFor="let point of summary.risk_trend" [style.height.%]="(point.stage / 4) * 100 + 18">
-          <span></span>
-          <small>{{ point.stage }}</small>
-        </div>
+      <div class="care-list">
+        <article>
+          <strong>Prevención</strong>
+          <span>Sensibilizar, conversar y fortalecer hábitos de cuidado en el entorno digital.</span>
+        </article>
+        <article>
+          <strong>Detección</strong>
+          <span>Identificar señales de manipulación, secreto, aislamiento o presión sexualizada.</span>
+        </article>
+        <article>
+          <strong>Acompañamiento</strong>
+          <span>Ordenar la información, buscar orientación especializada y preservar evidencia.</span>
+        </article>
       </div>
     </section>
   </div>
@@ -121,7 +170,7 @@
 
 <ng-template #loadingState>
   <section class="dashboard dashboard--loading">
-    <div *ngIf="loading" class="loading-card">Loading dashboard from API...</div>
+    <div *ngIf="loading" class="loading-card">Cargando dashboard...</div>
     <div *ngIf="!loading && errorMessage" class="loading-card loading-card--error">{{ errorMessage }}</div>
   </section>
 </ng-template>

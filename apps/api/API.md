@@ -11,7 +11,8 @@ Implementa la API Flask del proyecto. Aquí vive la entrada HTTP principal: aute
 - `config.py`: carga variables de entorno y arma la configuración de ejecución.
 - `database.py`: instancia SQLAlchemy.
 - `normalize.py`: adapta payloads de Instagram al formato interno.
-- `services.py`: helpers de serialización, armado de bundles y utilidades de dominio.
+- `services.py`: fachada de compatibilidad que reexporta la lógica interna reutilizable.
+- `service_modules/`: helpers, bundles, serializadores, lógica de riesgo y resúmenes de dashboard.
 - `signature.py`: verifica la firma `X-Hub-Signature-256`.
 - `models/`: definición de las entidades persistidas.
 - `routes/`: blueprints HTTP agrupados por caso de uso.

@@ -1,26 +1,32 @@
 <section class="child-shell">
   <div class="child-card">
     <div class="child-card__copy">
-      <p class="eyebrow">Monitored profile</p>
+      <p class="eyebrow">Perfil monitoreado</p>
       <h1>Agregar hijo</h1>
       <p>Un único envío crea el perfil del hijo y su cuenta de Instagram monitoreada.</p>
     </div>
 
     <form class="child-form" [formGroup]="childForm" (ngSubmit)="submit()" novalidate>
       <label>
-        <span>Nombre del hijo</span>
+        <span>Nombre para el dashboard</span>
         <input type="text" formControlName="display_name" placeholder="Ej. Sofía" autocomplete="off" />
-        <small *ngIf="displayNameInvalid">El nombre es obligatorio.</small>
+        <small *ngIf="displayNameInvalid">El nombre visible es obligatorio.</small>
       </label>
 
       <label>
-        <span>Instagram User ID</span>
-        <input type="text" formControlName="ig_user_id" placeholder="ig-1001" autocomplete="off" />
-        <small *ngIf="igUserIdInvalid">El Instagram User ID es obligatorio.</small>
+        <span>ID de usuario de Instagram</span>
+        <input type="text" formControlName="ig_user_id" placeholder="1576252457165658" autocomplete="off" />
+        <small *ngIf="igUserIdInvalid">El ID de usuario de Instagram es obligatorio.</small>
       </label>
 
       <label>
-        <span>Instagram Access Token</span>
+        <span>Usuario de Instagram</span>
+        <input type="text" formControlName="ig_username" placeholder="usuario_sin_arroba" autocomplete="off" />
+        <small *ngIf="igUsernameInvalid">El usuario de Instagram es obligatorio.</small>
+      </label>
+
+      <label>
+        <span>Token de acceso de Instagram</span>
         <input type="text" formControlName="access_token" placeholder="Token de acceso" autocomplete="off" />
         <small *ngIf="accessTokenInvalid">El access token es obligatorio.</small>
       </label>

@@ -208,7 +208,7 @@ Snapshots del análisis asociado a un caso de riesgo.
 ## Seguridad y privacidad
 
 1. No se guarda el texto completo de los mensajes.
-2. Los tokens de Instagram viven solo en backend.
+2. Los tokens de Instagram se guardan en la base y pueden viajar entre el frontend autenticado y la API para alta y administración de cuentas monitoreadas.
 3. El frontend solo consume la API; nunca accede directo a la base.
 4. El worker usa la misma base para completar el pipeline de preprocesamiento y análisis.
 

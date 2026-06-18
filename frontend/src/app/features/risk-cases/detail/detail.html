@@ -1,105 +1,115 @@
 <section class="risk-case-detail" *ngIf="!loading && riskCase; else loadingState">
   <header class="hero">
     <div>
-      <p class="eyebrow">Risk case detail</p>
-      <h2>Stage {{ riskCase?.stage }} · {{ riskCase?.stage_label }}</h2>
-      <p class="muted">{{ explanation }}</p>
+      <p class="eyebrow">Detalle del caso</p>
+      <h2 [attr.data-level]="riskCase?.risk_level">Etapa {{ riskCase?.stage }} · {{ riskCase?.stage_label }}</h2>
+      <p class="muted">{{ analysisSummary }}</p>
     </div>
 
-    <button class="ghost-button" type="button" (click)="goBack()">Back</button>
+    <button class="ghost-button" type="button" (click)="goBack()">Volver</button>
   </header>
 
   <div class="metric-grid">
     <article class="metric-card">
-      <span>Status</span>
-      <strong>{{ riskCase?.status }}</strong>
+      <span>Estado</span>
+      <strong>{{ statusLabel }}</strong>
     </article>
     <article class="metric-card">
-      <span>Confidence</span>
+      <span>Confianza</span>
       <strong>{{ riskCase?.confidence | percent: '1.0-0' }}</strong>
     </article>
-    <article class="metric-card accent">
-      <span>Opened</span>
-      <strong>{{ riskCase?.opened_at | date: 'medium' }}</strong>
+    <article class="metric-card">
+      <span>Apertura</span>
+      <strong>{{ riskCase?.opened_at | date: 'dd/MM/yyyy, HH:mm' }}</strong>
     </article>
     <article class="metric-card">
-      <span>Conversation</span>
-      <strong>{{ conversation?.peer_id }}</strong>
+      <span>Contacto externo</span>
+      <strong>{{ contactLabel }}</strong>
     </article>
   </div>
 
   <div class="layout-grid">
     <section class="panel">
       <div class="panel__header">
-        <h3>Classification explanation</h3>
-        <span class="pill" [attr.data-level]="riskCase?.risk_level">{{ riskCase?.risk_level }}</span>
+        <h3>Explicación de clasificación</h3>
+        <span class="pill" [attr.data-level]="riskCase?.risk_level">{{ riskLevelLabel }}</span>
       </div>
 
-      <p class="summary-text">{{ explanation }}</p>
+      <div class="analysis-block">
+        <span>Resumen del análisis</span>
+        <p class="summary-text">{{ analysisSummary }}</p>
+      </div>
+
+      <div class="analysis-block" *ngIf="reasonItems.length">
+        <span>Motivos principales</span>
+        <ul class="reason-list">
+          <li *ngFor="let reason of reasonItems">{{ reason }}</li>
+        </ul>
+      </div>
 
       <div class="signal-list" *ngIf="signals.length; else noSignals">
         <span class="signal" *ngFor="let signal of signals">{{ signal }}</span>
       </div>
       <ng-template #noSignals>
-        <p class="empty-state">No signals extracted from the latest snapshot.</p>
+        <p class="empty-state">No hay señales extraídas del último análisis.</p>
       </ng-template>
     </section>
 
     <section class="panel">
       <div class="panel__header">
-        <h3>Evolution</h3>
-        <span class="pill">{{ snapshots.length }} snapshots</span>
+        <h3>Evolución</h3>
+        <span class="pill">{{ snapshots.length }} análisis</span>
       </div>
 
       <div class="evolution-chart" *ngIf="stageEvolution.length; else noEvolution">
         <article class="evolution-point" *ngFor="let point of stageEvolution; trackBy: trackByStagePoint">
           <div class="evolution-point__bar" [style.height.%]="(point.stage / 4) * 100 + 18"></div>
-          <small>{{ point.at | date: 'short' }}</small>
+          <small>{{ point.at | date: 'dd/MM/yyyy, HH:mm' }}</small>
           <span>{{ point.stage }}</span>
         </article>
       </div>
       <ng-template #noEvolution>
-        <p class="empty-state">This case has no historical snapshots yet.</p>
+        <p class="empty-state">Este caso todavía no tiene historial de análisis.</p>
       </ng-template>
     </section>
   </div>
 
   <section class="panel panel--snapshots">
     <div class="panel__header">
-      <h3>Snapshot history</h3>
-      <span class="pill">Historical AI outputs</span>
+      <h3>Historial de análisis</h3>
+      <span class="pill">Historial</span>
     </div>
 
     <div class="snapshot-list" *ngIf="snapshots.length; else noSnapshots">
       <article class="snapshot-card" *ngFor="let snapshot of snapshots; trackBy: trackById">
         <div class="snapshot-card__top">
-          <strong>{{ snapshot.created_at | date: 'medium' }}</strong>
-          <span>{{ snapshot.signals?.length || 0 }} signals</span>
+          <strong>{{ snapshot.created_at | date: 'dd/MM/yyyy, HH:mm' }}</strong>
+          <span>{{ snapshot.signals?.length || 0 }} señales</span>
         </div>
 
-        <p><strong>Stage:</strong> {{ snapshotStage(snapshot) }}</p>
-        <p><strong>Confidence:</strong> {{ snapshotConfidence(snapshot) | percent: '1.0-0' }}</p>
-        <p><strong>Reason:</strong> {{ snapshotReason(snapshot) }}</p>
+        <p><strong>Etapa:</strong> {{ snapshotStage(snapshot) }}</p>
+        <p><strong>Confianza:</strong> {{ snapshotConfidence(snapshot) | percent: '1.0-0' }}</p>
+        <p><strong>Motivo:</strong> {{ snapshotReason(snapshot) }}</p>
       </article>
     </div>
     <ng-template #noSnapshots>
-      <p class="empty-state">No snapshots were returned by the API for this case.</p>
+      <p class="empty-state">Todavía no hay análisis guardados para este caso.</p>
     </ng-template>
   </section>
 
   <section class="panel panel--conversation">
     <div class="panel__header">
-      <h3>Origin conversation</h3>
-      <a *ngIf="conversation?.id" class="conversation-link" [routerLink]="['/conversations', conversation?.id]">Open conversation</a>
+      <h3>Conversación de origen</h3>
+      <a *ngIf="conversation?.id" class="conversation-link" [routerLink]="['/conversations', conversation?.id]">Abrir conversación</a>
     </div>
 
-    <p class="summary-text">Peer: {{ conversation?.peer_id }} · Profile: {{ conversation?.child_name || 'Unknown' }}</p>
+    <p class="summary-text">{{ contactLabel }} · {{ monitoredAccountLabel }} · Perfil: {{ conversation?.child_name || 'Sin perfil' }}</p>
   </section>
 </section>
 
 <ng-template #loadingState>
   <section class="risk-case-detail risk-case-detail--loading">
-    <div *ngIf="loading" class="loading-card">Loading risk case detail...</div>
+    <div *ngIf="loading" class="loading-card">Cargando detalle del caso...</div>
     <div *ngIf="!loading && errorMessage" class="loading-card loading-card--error">{{ errorMessage }}</div>
   </section>
 </ng-template>

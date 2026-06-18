@@ -8,29 +8,29 @@
         <span>/</span>
         <span>{{ child.display_name }}</span>
       </nav>
-      <p class="eyebrow">Monitored profile</p>
+      <p class="eyebrow">Perfil monitoreado</p>
       <h2>{{ child.display_name }}</h2>
       <p class="muted">Perfil del hijo con su cuenta monitoreada asociada.</p>
     </div>
 
     <div class="detail-actions">
       <a class="back-button" routerLink="/dashboard/new">Agregar hijo</a>
-      <button type="button" class="back-button" (click)="back()">Back</button>
+      <button type="button" class="back-button" (click)="back()">Volver</button>
     </div>
   </div>
 
   <div class="metric-grid">
     <article class="metric-card">
-      <span>Instagram User ID</span>
-      <strong>{{ igUserId }}</strong>
+      <span>Usuario de Instagram</span>
+      <strong>{{ igUsername }}</strong>
     </article>
     <article class="metric-card">
       <span>Estado</span>
       <strong>{{ statusLabel }}</strong>
     </article>
-    <article class="metric-card accent">
+    <article class="metric-card">
       <span>Fecha de creación</span>
-      <strong>{{ child.created_at | date: 'medium' }}</strong>
+      <strong>{{ child.created_at | date: 'dd/MM/yyyy, HH:mm' }}</strong>
     </article>
   </div>
 
@@ -41,21 +41,19 @@
       </div>
 
       <div class="stack-list">
-        <article class="stack-item stack-item--wide">
+        <a class="stack-item stack-item--wide" routerLink="/conversations">
           <div>
             <strong>Conversaciones</strong>
             <p>Ver las conversaciones de este perfil en la sección correspondiente.</p>
           </div>
-          <a routerLink="/conversations">Abrir</a>
-        </article>
+        </a>
 
-        <article class="stack-item stack-item--wide">
+        <a class="stack-item stack-item--wide" routerLink="/risk-cases">
           <div>
-            <strong>Risk cases</strong>
+            <strong>Casos de riesgo</strong>
             <p>Ver los casos de riesgo asociados a esta cuenta.</p>
           </div>
-          <a routerLink="/risk-cases">Abrir</a>
-        </article>
+        </a>
       </div>
     </section>
   </div>
@@ -63,7 +61,7 @@
 
 <ng-template #loadingState>
   <section class="profile-detail profile-detail--loading">
-    <div *ngIf="loading" class="loading-card">Loading child profile from API...</div>
+    <div *ngIf="loading" class="loading-card">Cargando perfil...</div>
     <div *ngIf="!loading && errorMessage" class="loading-card loading-card--error">{{ errorMessage }}</div>
   </section>
 </ng-template>

@@ -3,6 +3,11 @@ import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { forkJoin, Subscription, switchMap } from 'rxjs';
 import { ApiService, ConversationItem, RiskCaseItem } from '../../../core/services/api';
+import {
+  riskLevelLabel as formatRiskLevel,
+  statusLabel as formatStatus,
+  trendLabel as formatTrend,
+} from '../../../shared/presentation-labels';
 
 @Component({
   selector: 'app-conversations-detail',
@@ -63,16 +68,32 @@ export class DetailComponent implements OnInit, OnDestroy {
     window.history.back();
   }
 
+  get monitoredAccountLabel(): string {
+    return this.conversation?.account_username ? `@${this.conversation.account_username}` : 'Cuenta monitoreada';
+  }
+
+  get peerLabel(): string {
+    return this.conversation?.peer_username ? `@${this.conversation.peer_username}` : this.conversation?.peer_id || 'Contacto externo';
+  }
+
   get summary(): Record<string, unknown> {
     return (this.conversation?.rolling_summary as Record<string, unknown>) || {};
   }
 
   get currentStageMax(): number | string {
-    return (this.summary['current_stage_max'] as number | undefined) ?? 'N/A';
+    return (this.summary['current_stage_max'] as number | undefined) ?? 'No disponible';
   }
 
   get trendLabel(): string {
-    return (this.summary['trend'] as string) || 'stable';
+    return formatTrend(this.summary['trend'] as string);
+  }
+
+  get statusLabel(): string {
+    return formatStatus(this.conversation?.status);
+  }
+
+  get riskLevelLabel(): string {
+    return formatRiskLevel(this.riskLevel);
   }
 
   get keyPoints(): string[] {
@@ -108,6 +129,10 @@ export class DetailComponent implements OnInit, OnDestroy {
     }
 
     return 'low';
+  }
+
+  riskCaseLevelLabel(riskCase: RiskCaseItem): string {
+    return formatRiskLevel(riskCase.risk_level);
   }
 
   trackById(_: number, item: { id: string }): string {
