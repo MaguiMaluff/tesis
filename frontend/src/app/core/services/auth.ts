@@ -17,6 +17,8 @@ export interface AuthLoginResponse {
 
 export interface AuthSignupResponse {
   message: string;
+  access_token: string;
+  refresh_token: string;
   user: AuthUser;
 }
 
@@ -46,11 +48,19 @@ export class AuthService {
   }
 
   signup(full_name: string, email: string, password: string): Observable<AuthSignupResponse> {
-    return this.http.post<AuthSignupResponse>(`${environment.apiUrl}/auth/signup`, {
-      full_name,
-      email,
-      password,
-    });
+    return this.http
+      .post<AuthSignupResponse>(`${environment.apiUrl}/auth/signup`, {
+        full_name,
+        email,
+        password,
+      })
+      .pipe(
+        tap((response) => {
+          localStorage.setItem(this.tokenKey, response.access_token);
+          localStorage.setItem(this.userKey, JSON.stringify(response.user));
+          this.isAuthenticatedSubject.next(true);
+        })
+      );
   }
 
   logout(): void {
