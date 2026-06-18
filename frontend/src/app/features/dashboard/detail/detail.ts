@@ -3,6 +3,7 @@ import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { Subscription, switchMap } from 'rxjs';
 import { ApiService, ChildDetail } from '../../../core/services/api';
+import { statusLabel as formatStatus } from '../../../shared/presentation-labels';
 
 @Component({
   selector: 'app-dashboard-detail',
@@ -51,7 +52,7 @@ export class DetailComponent implements OnInit, OnDestroy {
   }
 
   get statusLabel(): string {
-    return this.child?.status || this.primaryAccount?.status || 'Sin estado';
+    return formatStatus(this.child?.status || this.primaryAccount?.status);
   }
 
   get primaryAccount(): any {
@@ -59,7 +60,12 @@ export class DetailComponent implements OnInit, OnDestroy {
   }
 
   get igUserId(): string {
-    return String(this.child?.ig_user_id || this.primaryAccount?.ig_user_id || 'N/A');
+    return String(this.child?.ig_user_id || this.primaryAccount?.ig_user_id || 'No disponible');
+  }
+
+  get igUsername(): string {
+    const username = this.child?.ig_username || this.primaryAccount?.ig_username;
+    return username ? `@${username}` : 'No disponible';
   }
 
   trackById(_: number, item: { id: string }): string {

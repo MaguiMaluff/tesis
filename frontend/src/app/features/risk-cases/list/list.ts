@@ -3,6 +3,10 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { ApiService, RiskCaseItem } from '../../../core/services/api';
 import { ChangeDetectorRef } from '@angular/core';
+import {
+  riskLevelLabel as formatRiskLevel,
+  statusLabel as formatStatus,
+} from '../../../shared/presentation-labels';
 
 @Component({
   selector: 'app-risk-cases-list',
@@ -32,7 +36,7 @@ export class ListComponent implements OnInit {
       },
       error: (error) => {
         console.error('Error fetching risk cases:', error);
-        this.errorMessage = 'No se pudo cargar la lista de risk cases.';
+        this.errorMessage = 'No se pudo cargar la lista de casos de riesgo.';
         this.loading = false;
         this.cdr.detectChanges();
       },
@@ -55,7 +59,7 @@ export class ListComponent implements OnInit {
         if (!query) {
           return true;
         }
-        return [riskCase.reason_safe, riskCase.stage_label, riskCase.peer_id, riskCase.status]
+        return [riskCase.reason_safe, riskCase.stage_label, riskCase.peer_username, riskCase.peer_id, riskCase.status]
           .filter(Boolean)
           .some((value) => String(value).toLowerCase().includes(query));
       })
@@ -72,5 +76,21 @@ export class ListComponent implements OnInit {
 
   trackById(_: number, item: RiskCaseItem): string {
     return item.id;
+  }
+
+  contactLabel(riskCase: RiskCaseItem): string {
+    return riskCase.peer_username ? `@${riskCase.peer_username}` : riskCase.peer_id || 'Contacto externo';
+  }
+
+  riskLevelLabel(level?: string | null): string {
+    return formatRiskLevel(level);
+  }
+
+  statusLabel(status?: string | null): string {
+    return formatStatus(status);
+  }
+
+  goBack(): void {
+    window.history.back();
   }
 }

@@ -34,6 +34,7 @@ export class CreateChildComponent implements OnInit {
     this.childForm = this.formBuilder.group({
       display_name: ['', [Validators.required, Validators.minLength(2)]],
       ig_user_id: ['', [Validators.required, Validators.minLength(3)]],
+      ig_username: ['', [Validators.required, Validators.minLength(2)]],
       access_token: ['', [Validators.required, Validators.minLength(6)]],
     });
   }
@@ -52,6 +53,10 @@ export class CreateChildComponent implements OnInit {
       ig_user_id: String(
         this.childForm.value.ig_user_id || ''
       ).trim(),
+
+      ig_username: String(
+        this.childForm.value.ig_username || ''
+      ).trim().replace(/^@+/, ''),
 
       access_token: String(
         this.childForm.value.access_token || ''
@@ -93,6 +98,11 @@ export class CreateChildComponent implements OnInit {
 
   get igUserIdInvalid(): boolean {
     const control = this.childForm.get('ig_user_id');
+    return !!(control?.touched && control.invalid);
+  }
+
+  get igUsernameInvalid(): boolean {
+    const control = this.childForm.get('ig_username');
     return !!(control?.touched && control.invalid);
   }
 

@@ -6,10 +6,10 @@ from datetime import timedelta
 from apps.api.app import app as api_app
 from apps.api.database import db
 from apps.api.models import Conversation, IgAccount, PreprocessRun
-from apps.api.services import parse_dt, to_iso, utcnow
+from apps.api.service_modules.utils import parse_dt, to_iso, utcnow
 
 from .ig_api import InstagramGraph
-from .resolve_conversation import resolve_conversation_ext_id
+from .resolve_conversation import resolve_conversation_identity
 
 
 @contextmanager
@@ -130,6 +130,14 @@ def _insert_preprocess_run(conv_id: str, window_start, window_end, trigger: str,
     return run
 
 
+def _set_peer_username(conversation: Conversation, peer_username: str | None):
+    if not peer_username:
+        return
+    rolling = conversation.rolling_summary if isinstance(conversation.rolling_summary, dict) else {}
+    rolling = {**rolling, "peer_username": peer_username}
+    conversation.rolling_summary = rolling
+
+
 def preprocess_conversation(api_version: str, conv_row: dict, trigger: str):
     conv_id = conv_row["id"]
     pending_count = int(conv_row.get("pending_count") or 0)
@@ -181,10 +189,11 @@ def preprocess_conversation(api_version: str, conv_row: dict, trigger: str):
 
             conversation_ext_id = conversation.conversation_ext_id
             if not conversation_ext_id:
-                resolved = resolve_conversation_ext_id(graph, ig_user_id_ext, conversation.peer_id)
+                resolved = resolve_conversation_identity(graph, ig_user_id_ext, conversation.peer_id)
                 if resolved:
-                    conversation.conversation_ext_id = resolved
-                    conversation_ext_id = resolved
+                    conversation.conversation_ext_id = resolved.get("conversation_ext_id")
+                    conversation_ext_id = conversation.conversation_ext_id
+                    _set_peer_username(conversation, resolved.get("peer_username"))
                     db.session.commit()
 
             if not conversation_ext_id:

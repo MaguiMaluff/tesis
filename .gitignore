@@ -12,3 +12,5 @@ __init__.py
 /transcripts
 instance
 __init__.py
+.agents
+.codex

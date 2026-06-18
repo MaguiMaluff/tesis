@@ -16,4 +16,4 @@ Contiene los blueprints HTTP de la API. Cada archivo agrupa endpoints por domini
 
 ## Relación con el resto del proyecto
 
-Las rutas dependen de `auth_middleware.py` para proteger acceso, de `services.py` para serializar respuestas y de `models/` para leer o actualizar el estado persistido.
+Las rutas dependen de `auth_middleware.py` para proteger acceso, de `service_modules/` para bundles, serialización y resúmenes, y de `models/` para leer o actualizar el estado persistido.

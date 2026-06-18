@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, g
 
 from ..auth_middleware import token_required
-from ..services import get_general_stats_for_user
+from ..service_modules.dashboard_service import get_general_stats_for_user
 
 stats_bp = Blueprint('stats', __name__)
 

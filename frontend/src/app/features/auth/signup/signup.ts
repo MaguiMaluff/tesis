@@ -60,13 +60,13 @@ export class SignupComponent implements OnInit {
     this.authService.signup(full_name, email, password).subscribe({
       next: () => {
         this.successMessage =
-          'Usuario creado correctamente. Redirigiendo al login...';
+          'Usuario creado correctamente. Redirigiendo al dashboard...';
 
         this.loading = false;
         this.cdr.detectChanges();
 
         window.setTimeout(() => {
-          void this.router.navigate(['/login']);
+          void this.router.navigate(['/dashboard']);
         }, 1200);
       },
       error: (error) => {

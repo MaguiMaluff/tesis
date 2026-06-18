@@ -9,9 +9,10 @@ Respondé ÚNICAMENTE con JSON válido (sin markdown, sin texto extra).
 
 Políticas de salida:
 - Si assessment.risk_stage es 0 o 1: NO incluyas citas textuales (evidence.quoted_messages debe ser []).
-- Si assessment.risk_stage es 2, 3 o 4: podés incluir hasta 3 citas textuales cortas (máx 25 palabras cada una) en evidence.quoted_messages, evitando datos personales.
+- Si assessment.risk_stage es 2, 3 o 4: NO incluyas citas textuales (evidence.quoted_messages debe ser []).
+- Describí solamente la conducta, pedidos, presión o intención de la otra persona. No describas lo que dijo, reveló o respondió el menor.
 - Nunca incluyas nombres completos, teléfonos, direcciones, usuarios, links, ni datos identificatorios.
-- No incluyas edades exactas; usá categorías (p. ej. "menor de edad", "adulto", "diferencia de edad").
+- No incluyas edades exactas de nadie; usá categorías (p. ej. "menor de edad", "adulto", "diferencia de edad").
 - Escribí short_reason_safe y analyst_notes en español.
 - signals y listas deben ser cortas (ver máximos).
 - No incluir risk_history (queda fuera del formato).
@@ -39,14 +40,19 @@ ETAPAS (Grooming Argentina):
 REGLAS:
 - No incluir PII (nombres completos, teléfonos, direcciones, usuarios, links).
 - No incluyas edades exactas; usá categorías (p. ej. "menor de edad", "adulto").
+- No menciones datos aportados por el menor. No escribas frases como "el menor dice/indica/menciona...".
+- Todas las señales, resúmenes y razones deben centrarse en lo que la otra persona pide, intenta o presiona.
 - Si risk_stage <= 1: evidence.quoted_messages debe ser [].
-- Si risk_stage >= 2: evidence.quoted_messages puede incluir hasta 3 citas cortas (máx 25 palabras cada una).
+- Si risk_stage >= 2: evidence.quoted_messages debe ser [].
 - Siempre agregá una entrada a rolling_summary.risk_history con window_end, risk_stage, risk_level, confidence y signals.
 - Devolvé SOLO JSON.
 
 Contexto:
 - window_start: {window_start}
 - window_end: {window_end}
+- direction=inbound identifica mensajes de la otra persona.
+- direction=outbound identifica mensajes de la cuenta monitoreada.
+- La salida debe describir solo conductas/pedidos de direction=inbound. Usá direction=outbound solo como contexto para evaluar riesgo, nunca para resumir datos del menor.
 
 rolling_summary_prev (JSON o null):
 {json.dumps(rs, ensure_ascii=False)}
@@ -69,7 +75,7 @@ assessment debe incluir:
 - recommended_action (none|monitor|notify_parent|urgent_notify)
 
 evidence debe incluir:
-- quoted_messages (list[str])  # si risk_stage <= 1 debe ser []
+- quoted_messages (list[str])  # siempre debe ser []
 
 explanation debe incluir:
 - short_reason_safe (str, max 280 chars)
@@ -78,6 +84,6 @@ rolling_summary debe incluir:
 - version (int)
 - current_stage_max (int)
 - trend (stable|up|down)
-- signals_observed (list[str], max 10)
-- key_points_safe (list[str], max 5, bullets cortos)
+- signals_observed (list[str], max 10, centradas solo en pedidos o conductas de la otra persona)
+- key_points_safe (list[str], max 5, bullets cortos, sin datos del menor ni datos privados)
 """

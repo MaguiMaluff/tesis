@@ -4,6 +4,7 @@ import { RouterModule } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { ApiService } from '../../../core/services/api';
 import { ChangeDetectorRef } from '@angular/core';
+import { riskLevelLabel as formatRiskLevel } from '../../../shared/presentation-labels';
 
 @Component({
   selector: 'app-dashboard-overview',
@@ -41,7 +42,7 @@ export class OverviewComponent implements OnInit {
       },
       error: (error) => {
         console.error('Error fetching dashboard data:', error);
-        this.errorMessage = 'No se pudo cargar el tablero desde la API.';
+        this.errorMessage = 'No se pudo cargar el panel.';
         this.loading = false;
         this.cdr.detectChanges();
 
@@ -58,15 +59,15 @@ export class OverviewComponent implements OnInit {
     }[level || 'low'] ?? 1;
   }
 
-  maxStageCount(): number {
-    return Math.max(...(this.summary?.cases_by_stage?.map((item: any) => item.count) || [1]), 1);
-  }
-
   trackById(_: number, item: { id: string }): string {
     return item.id;
   }
 
   trackBySignal(_: number, signal: string): string {
     return signal;
+  }
+
+  riskLevelLabel(level?: string | null): string {
+    return formatRiskLevel(level);
   }
 }
