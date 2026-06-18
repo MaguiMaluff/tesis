@@ -6,7 +6,7 @@ from flask import current_app, g, jsonify, request
 
 from .database import db
 from .models import User
-from .services import utcnow
+from .service_modules.utils import utcnow
 
 
 def create_access_token(user: User) -> str:

@@ -48,6 +48,9 @@ export interface ChildCard {
   id: string;
   display_name: string;
   created_at?: string;
+  ig_username?: string | null;
+  ig_user_id?: string | null;
+  status?: string | null;
   accounts_count: number;
   conversations_count: number;
   risk_cases_count: number;
@@ -107,6 +110,9 @@ export interface ConversationItem {
   id: string;
   ig_account_id?: string;
   peer_id: string;
+  peer_username?: string | null;
+  account_username?: string | null;
+  account_ig_user_id?: string | null;
   conversation_ext_id?: string | null;
   created_at?: string;
   last_message_at?: string | null;
@@ -150,6 +156,8 @@ export interface RiskCaseItem {
   stage_label?: string;
   child_id?: string | null;
   peer_id?: string | null;
+  peer_username?: string | null;
+  account_username?: string | null;
   signals?: string[];
 }
 
@@ -174,6 +182,8 @@ export interface RiskCaseDetail extends RiskCaseItem {
   conversation?: {
     id: string;
     peer_id: string;
+    peer_username?: string | null;
+    account_username?: string | null;
     child_id?: string | null;
     child_name?: string | null;
     last_message_at?: string | null;
@@ -197,7 +207,12 @@ export class ApiService {
     return this.http.get<ChildCard[]>(`${this.apiUrl}/children`);
   }
 
-  createChild(payload: { display_name: string; ig_user_id: string; access_token: string }): Observable<ChildDetail> {
+  createChild(payload: {
+    display_name: string;
+    ig_user_id: string;
+    ig_username: string;
+    access_token: string;
+  }): Observable<ChildDetail> {
     return this.http.post<ChildDetail>(`${this.apiUrl}/children`, payload);
   }
 

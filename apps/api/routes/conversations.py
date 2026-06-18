@@ -1,10 +1,10 @@
-from flask import Blueprint, jsonify, g
+from flask import Blueprint, jsonify, g, request
 
 from ..auth_middleware import token_required
 from ..database import db
 from ..models import IgAccount
-from ..services import (
-    load_user_bundle,
+from ..service_modules.bundles import load_user_bundle
+from ..service_modules.serializers import (
     serialize_conversation,
     serialize_conversation_detail,
     serialize_message_event,
@@ -14,13 +14,35 @@ from ..services import (
 conversations_bp = Blueprint('conversations', __name__)
 
 
+def _filter_conversations(payload):
+    query = request.args.get('search', '').strip().lower()
+    if query:
+        payload = [
+            item for item in payload
+            if any(
+                query in str(value).lower()
+                for value in (
+                    item.get('peer_id'),
+                    item.get('child_name'),
+                    item.get('account_username'),
+                    item.get('status'),
+                    item.get('max_stage_label'),
+                )
+                if value is not None
+            )
+        ]
+
+    reverse = request.args.get('order', 'recent') != 'oldest'
+    payload.sort(key=lambda item: item.get('last_message_at') or item.get('created_at') or '', reverse=reverse)
+    return payload
+
+
 @conversations_bp.get('/conversations')
 @token_required
 def list_conversations():
     bundle = load_user_bundle(g.user_id)
     payload = [serialize_conversation(conversation, bundle) for conversation in bundle['conversations']]
-    payload.sort(key=lambda item: item.get('last_message_at') or item.get('created_at') or '', reverse=True)
-    return jsonify(payload)
+    return jsonify(_filter_conversations(payload))
 
 
 @conversations_bp.get('/conversations/<conversation_id>')
@@ -58,5 +80,4 @@ def list_account_conversations(account_id):
         serialize_conversation(conversation, bundle)
         for conversation in bundle['conversations_by_account'].get(account_id, [])
     ]
-    payload.sort(key=lambda item: item.get('last_message_at') or item.get('created_at') or '', reverse=True)
-    return jsonify(payload)
+    return jsonify(_filter_conversations(payload))

@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { ApiService, ConversationItem } from '../../../core/services/api';
 import { ChangeDetectorRef } from '@angular/core';
+import { statusLabel as formatStatus } from '../../../shared/presentation-labels';
 
 @Component({
   selector: 'app-conversations-list',
@@ -49,7 +50,7 @@ export class ListComponent implements OnInit {
         if (!query) {
           return true;
         }
-        return [conversation.peer_id, conversation.child_name, conversation.status, conversation.max_stage_label]
+        return [conversation.peer_username, conversation.peer_id, conversation.child_name, conversation.status, conversation.max_stage_label]
           .filter(Boolean)
           .some((value) => String(value).toLowerCase().includes(query));
       })
@@ -66,5 +67,17 @@ export class ListComponent implements OnInit {
 
   trackById(_: number, item: ConversationItem): string {
     return item.id;
+  }
+
+  conversationTitle(conversation: ConversationItem): string {
+    return conversation.peer_username ? `@${conversation.peer_username}` : conversation.peer_id;
+  }
+
+  statusLabel(status?: string | null): string {
+    return formatStatus(status);
+  }
+
+  goBack(): void {
+    window.history.back();
   }
 }

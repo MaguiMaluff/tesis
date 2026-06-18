@@ -3,7 +3,8 @@ from flask import Blueprint, jsonify, request, g
 from ..auth_middleware import token_required
 from ..database import db
 from ..models import Child, IgAccount
-from ..services import load_user_bundle, serialize_account, serialize_child_card, serialize_child_detail
+from ..service_modules.bundles import load_user_bundle
+from ..service_modules.serializers import serialize_account, serialize_child_card, serialize_child_detail
 
 children_bp = Blueprint('children', __name__)
 
@@ -31,9 +32,10 @@ def add_child():
     data = request.get_json(silent=True) or {}
     display_name = str(data.get('display_name', '')).strip()
     ig_user_id = str(data.get('ig_user_id', '')).strip()
+    ig_username = str(data.get('ig_username', '')).strip().lstrip('@')
     access_token = str(data.get('access_token', '')).strip()
 
-    if not display_name or not ig_user_id or not access_token:
+    if not display_name or not ig_user_id or not ig_username or not access_token:
         return jsonify({'error': 'Missing fields'}), 400
 
     child = Child(display_name=display_name, parent_id=g.user_id)
@@ -43,7 +45,7 @@ def add_child():
     account = IgAccount(
         child_id=child.id,
         ig_user_id=ig_user_id,
-        ig_username=display_name.lower().replace(' ', '_'),
+        ig_username=ig_username,
         access_token=access_token,
         webhook_enabled=True,
         status='active',

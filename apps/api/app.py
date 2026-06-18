@@ -15,7 +15,7 @@ from .routes.conversations import conversations_bp
 from .routes.dashboard import dashboard_bp
 from .routes.risk_cases import risk_bp
 from .routes.stats import stats_bp
-from .services import parse_dt, utcnow
+from .service_modules.utils import parse_dt, utcnow
 from .signature import verify_x_hub_signature_256
 
 load_dotenv()
@@ -54,7 +54,7 @@ def _get_or_create_conversation(account: IgAccount, peer_id: str, sent_at: str |
         conversation_ext_id=None,
         created_at=timestamp,
         last_message_at=timestamp,
-        last_preprocessed_at=timestamp,
+        last_preprocessed_at=None,
         pending_count=0,
         pending_since=timestamp,
         rolling_summary={
@@ -87,7 +87,6 @@ def _store_message(conversation: Conversation, cm) -> bool:
         )
     )
     conversation.last_message_at = sent_at
-    conversation.last_preprocessed_at = sent_at
     conversation.pending_count = (conversation.pending_count or 0) + 1
     conversation.pending_since = conversation.pending_since or sent_at
     return True

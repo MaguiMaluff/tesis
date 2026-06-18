@@ -1,23 +1,24 @@
 <section class="conversations-page" *ngIf="!loading; else loadingState">
   <header class="hero">
     <div>
-      <p class="eyebrow">Conversation monitoring</p>
-      <h2>Tracked conversations</h2>
-      <p class="muted">Search by peer, child or status. Sorted from the latest activity by default.</p>
+      <p class="eyebrow">Monitoreo de conversaciones</p>
+      <h2>Conversaciones monitoreadas</h2>
+      <p class="muted">Buscar por contacto externo, perfil o estado. Ordenado por actividad reciente.</p>
     </div>
 
     <div class="toolbar">
+      <button type="button" class="back-button" (click)="goBack()">Volver</button>
       <input
         class="search"
         type="search"
         [value]="searchTerm"
         (input)="searchTerm = $any($event.target).value"
-        placeholder="Search conversations"
+        placeholder="Buscar conversaciones"
       />
 
       <div class="sort-group">
-        <button type="button" [class.is-active]="sortOrder === 'recent'" (click)="setSortOrder('recent')">Recent</button>
-        <button type="button" [class.is-active]="sortOrder === 'oldest'" (click)="setSortOrder('oldest')">Oldest</button>
+        <button type="button" [class.is-active]="sortOrder === 'recent'" (click)="setSortOrder('recent')">Recientes</button>
+        <button type="button" [class.is-active]="sortOrder === 'oldest'" (click)="setSortOrder('oldest')">Antiguas</button>
       </div>
     </div>
   </header>
@@ -25,33 +26,34 @@
   <div class="loading-card loading-card--error" *ngIf="errorMessage">{{ errorMessage }}</div>
 
   <div class="conversation-grid" *ngIf="visibleConversations.length; else emptyState">
-    <a class="conversation-card" *ngFor="let conversation of visibleConversations; trackBy: trackById" [routerLink]="['/conversations', conversation.id]">
+    <a class="conversation-card" *ngFor="let conversation of visibleConversations; trackBy: trackById" [routerLink]="['/conversations', conversation.id]" [attr.data-risk]="conversation.risk_level || 'low'">
       <div class="conversation-card__top">
         <div>
-          <span class="label">Peer</span>
-          <strong>{{ conversation.peer_id }}</strong>
+          <span class="label">Contacto externo</span>
+          <strong>{{ conversationTitle(conversation) }}</strong>
         </div>
 
         <span class="risk-pill" [attr.data-level]="conversation.risk_level">{{ conversation.max_stage_label || 'Sin señales' }}</span>
       </div>
 
-      <p class="conversation-card__meta" *ngIf="conversation.child_name">Profile: {{ conversation.child_name }}</p>
-      <p class="conversation-card__meta">Status: {{ conversation.status }} · {{ conversation.messages_count || 0 }} messages</p>
+      <p class="conversation-card__meta" *ngIf="conversation.child_name">Perfil: {{ conversation.child_name }}</p>
+      <p class="conversation-card__meta" *ngIf="conversation.account_username">Cuenta monitoreada: @{{ conversation.account_username }}</p>
+      <p class="conversation-card__meta">Estado: {{ statusLabel(conversation.status) }} · {{ conversation.messages_count || 0 }} mensajes</p>
 
       <div class="conversation-card__footer">
-        <span>{{ conversation.last_message_at | date: 'medium' }}</span>
-        <span>{{ conversation.pending_count || 0 }} pending</span>
+        <span>{{ conversation.last_message_at | date: 'dd/MM/yyyy, HH:mm' }}</span>
+        <span>{{ conversation.pending_count || 0 }} pendientes</span>
       </div>
     </a>
   </div>
 
   <ng-template #emptyState>
-    <div class="empty-state">No conversations matched the current filters.</div>
+    <div class="empty-state">No hay conversaciones para los filtros actuales.</div>
   </ng-template>
 </section>
 
 <ng-template #loadingState>
   <section class="conversations-page conversations-page--loading">
-    <div class="loading-card">Loading conversations...</div>
+    <div class="loading-card">Cargando conversaciones...</div>
   </section>
 </ng-template>

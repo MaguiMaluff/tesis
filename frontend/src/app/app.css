@@ -1,11 +1,28 @@
 :host {
   display: block;
   min-height: 100vh;
-  color: #f3efe7;
+  color: #253047;
+  --color-ink: #253047;
+  --color-muted: #697287;
+  --color-surface: rgba(255, 255, 255, 0.84);
+  --color-surface-strong: #ffffff;
+  --color-border: rgba(91, 115, 150, 0.16);
+  --color-pink: #ffd8e8;
+  --color-blue: #cdefff;
+  --color-yellow: #fff0a8;
+  --color-red: #e84c5f;
+  --color-red-soft: #ffe1e5;
+  --shadow-soft: 0 18px 42px rgba(88, 108, 135, 0.14);
   background:
-    radial-gradient(circle at top left, rgba(212, 145, 103, 0.28), transparent 30%),
-    radial-gradient(circle at right top, rgba(77, 115, 145, 0.2), transparent 28%),
-    linear-gradient(180deg, #101214 0%, #15181d 52%, #0b0d10 100%);
+    linear-gradient(120deg, rgba(255, 216, 232, 0.78), transparent 34%),
+    linear-gradient(230deg, rgba(205, 239, 255, 0.9), transparent 42%),
+    linear-gradient(180deg, #fffdf7 0%, #f8fbff 52%, #fff8df 100%);
+}
+
+:host *,
+:host *::before,
+:host *::after {
+  box-sizing: border-box;
 }
 
 .app-shell {

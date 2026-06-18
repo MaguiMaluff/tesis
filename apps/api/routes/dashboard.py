@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, g
 
 from ..auth_middleware import token_required
-from ..services import dashboard_summary_for_user
+from ..service_modules.dashboard_service import dashboard_summary_for_user
 
 
 dashboard_bp = Blueprint('dashboard', __name__)
